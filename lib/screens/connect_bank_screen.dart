@@ -18,6 +18,7 @@ class _ConnectBankScreenState extends State<ConnectBankScreen> {
 
   bool _isLoadingToken = true;
   bool _isRegisteringItem = false;
+  bool _itemProcessed = false;
   String? _errorMessage;
 
   @override
@@ -28,11 +29,15 @@ class _ConnectBankScreenState extends State<ConnectBankScreen> {
 
   Future<void> _setupWebView() async {
     try {
+      print('🔵 Buscando connect token...');
       final token = await _authService.getToken();
+      print('🔵 Token JWT obtido: ${token != null}');
       final response = await http.post(
         Uri.parse('${ApiConfig.baseUrl}/pluggy/connect-token'),
         headers: {'Authorization': 'Bearer $token'},
       );
+      print('🔵 Status da resposta: ${response.statusCode}');
+      print('🔵 Corpo: ${response.body}');
 
       if (response.statusCode != 200) {
         throw Exception('Não foi possível gerar o token de conexão');
@@ -46,7 +51,23 @@ class _ConnectBankScreenState extends State<ConnectBankScreen> {
           'FlutterChannel',
           onMessageReceived: (message) => _handlePluggyResult(message.message),
         )
-        ..loadHtmlString(_buildHtml(connectToken));
+        ..setNavigationDelegate(
+          NavigationDelegate(
+            onPageStarted: (String url) {
+              if (_itemProcessed) return;
+              final uri = Uri.tryParse(url);
+              final itemId = uri?.queryParameters['itemId'];
+              if (itemId != null && itemId.isNotEmpty) {
+                _itemProcessed = true;
+                _handlePluggyResult(jsonEncode({
+                  'status': 'success',
+                  'item': {'id': itemId},
+                }));
+              }
+            },
+          ),
+        )
+        ..loadHtmlString(_buildHtml(connectToken), baseUrl: 'https://localhost/');
 
       setState(() => _isLoadingToken = false);
     } catch (e) {
@@ -58,31 +79,37 @@ class _ConnectBankScreenState extends State<ConnectBankScreen> {
   }
 
   String _buildHtml(String connectToken) {
-    return '''
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <script src="https://cdn.pluggy.ai/pluggy-connect/v2.8.2/pluggy-connect.js"></script>
-    </head>
-    <body>
-      <script>
-        const pluggyConnect = new PluggyConnect({
-          connectToken: "$connectToken",
-          includeSandbox: false,
-          onSuccess: (itemData) => {
-            FlutterChannel.postMessage(JSON.stringify({ status: "success", item: itemData.item }));
-          },
-          onError: (error) => {
-            FlutterChannel.postMessage(JSON.stringify({ status: "error", message: error.message }));
-          },
-        });
-        pluggyConnect.init();
-      </script>
-    </body>
-    </html>
-    ''';
-  }
+  return '''
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <meta charset="UTF-8">
+    <script>
+      window.open = function(url) {
+        window.location.href = url;
+        return null;
+      };
+    </script>
+    <script src="https://cdn.pluggy.ai/pluggy-connect/v2.8.2/pluggy-connect.js"></script>
+  </head>
+  <body>
+    <script>
+      const pluggyConnect = new PluggyConnect({
+        connectToken: "$connectToken",
+        includeSandbox: false,
+        onSuccess: (itemData) => {
+          FlutterChannel.postMessage(JSON.stringify({ status: "success", item: itemData.item }));
+        },
+        onError: (error) => {
+          FlutterChannel.postMessage(JSON.stringify({ status: "error", message: error.message }));
+        },
+      });
+      pluggyConnect.init();
+    </script>
+  </body>
+  </html>
+  ''';
+}
 
   Future<void> _handlePluggyResult(String rawMessage) async {
     final data = jsonDecode(rawMessage);

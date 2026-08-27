@@ -106,8 +106,10 @@ class _HomeScreenState extends State<HomeScreen> {
   double get _totalBalance {
     double total = 0;
     for (final acc in _accounts) {
-      final balance = acc['balance'];
-      if (balance is num) total += balance;
+      if (acc['type'] == 'BANK') {
+        final balance = acc['balance'];
+        if (balance is num) total += balance;
+      }
     }
     return total;
   }
@@ -254,17 +256,23 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildAccountCard(dynamic acc) {
+    final isCredit = acc['type'] == 'CREDIT';
+    final balance = acc['balance'];
+
     return Card(
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: AppTheme.primary.withValues(alpha: 0.1),
+          backgroundColor: AppTheme.primary.withOpacity(0.1),
           child: Icon(accountTypeIcon(acc['type']), color: AppTheme.primary),
         ),
         title: Text(acc['name'] ?? 'Conta', style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text(acc['type'] ?? ''),
+        subtitle: Text(isCredit ? 'Fatura atual' : (acc['type'] ?? '')),
         trailing: Text(
-          formatCurrency(acc['balance']),
-          style: const TextStyle(fontWeight: FontWeight.w700),
+          formatCurrency(balance),
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            color: isCredit ? AppTheme.danger : null,
+          ),
         ),
       ),
     );
