@@ -1,44 +1,253 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+
+import 'package:http/http.dart'
+    as http;
+
 import '../config/api_config.dart';
 import 'auth_service.dart';
 
+
 class FinanceService {
-  final _authService = AuthService();
+  final _authService =
+      AuthService();
 
-  Future<Map<String, dynamic>> getSummary() async {
-    final token = await _authService.getToken();
-    final response = await http.get(
-      Uri.parse('${ApiConfig.baseUrl}/finance/summary'),
-      headers: {'Authorization': 'Bearer $token'},
-    );
+  // =========================================================
+  // TOKEN
+  // =========================================================
 
-    if (response.statusCode != 200) {
-      throw Exception('Erro ao buscar resumo financeiro');
-    }
+  Future<Map<String, String>>
+      _authenticatedHeaders() async {
+    final token =
+        await _authService.getToken();
 
-    return jsonDecode(response.body);
+    return {
+      'Authorization':
+          'Bearer $token',
+      'Content-Type':
+          'application/json',
+    };
   }
 
-  /// Retorna o corpo da resposta em caso de sucesso.
-  /// Lança exceção com a mensagem de cooldown se ainda não passou o tempo.
-  Future<Map<String, dynamic>> refresh() async {
-    final token = await _authService.getToken();
-    final response = await http.post(
-      Uri.parse('${ApiConfig.baseUrl}/finance/refresh'),
-      headers: {'Authorization': 'Bearer $token'},
+  // =========================================================
+  // RESUMO
+  // =========================================================
+
+  Future<Map<String, dynamic>>
+      getSummary() async {
+    final headers =
+        await _authenticatedHeaders();
+
+    final response =
+        await http.get(
+      Uri.parse(
+        '${ApiConfig.baseUrl}/finance/summary',
+      ),
+      headers: headers,
     );
 
-    final data = jsonDecode(response.body);
-
-    if (response.statusCode == 429) {
-      throw Exception(data['detail'] ?? 'Aguarde antes de atualizar novamente');
+    if (response.statusCode !=
+        200) {
+      throw Exception(
+        'Erro ao buscar resumo financeiro',
+      );
     }
 
-    if (response.statusCode != 200) {
-      throw Exception('Erro ao atualizar dados financeiros');
+    return jsonDecode(
+      response.body,
+    );
+  }
+
+  // =========================================================
+  // REFRESH PLUGGY
+  // =========================================================
+
+  Future<Map<String, dynamic>>
+      refresh() async {
+    final headers =
+        await _authenticatedHeaders();
+
+    final response =
+        await http.post(
+      Uri.parse(
+        '${ApiConfig.baseUrl}/finance/refresh',
+      ),
+      headers: headers,
+    );
+
+    final data =
+        jsonDecode(
+      response.body,
+    );
+
+    if (response.statusCode ==
+        429) {
+      throw Exception(
+        data['detail'] ??
+            'Aguarde antes de atualizar novamente',
+      );
+    }
+
+    if (response.statusCode !=
+        200) {
+      throw Exception(
+        'Erro ao atualizar dados financeiros',
+      );
     }
 
     return data;
+  }
+
+  // =========================================================
+  // INVESTIMENTOS MANUAIS
+  // =========================================================
+
+  Future<List<dynamic>>
+      getManualInvestments() async {
+    final headers =
+        await _authenticatedHeaders();
+
+    final response =
+        await http.get(
+      Uri.parse(
+        '${ApiConfig.baseUrl}/investments/manual',
+      ),
+      headers: headers,
+    );
+
+    if (response.statusCode !=
+        200) {
+      throw Exception(
+        'Erro ao buscar investimentos manuais',
+      );
+    }
+
+    return jsonDecode(
+      response.body,
+    );
+  }
+
+  Future<Map<String, dynamic>>
+      createManualInvestment({
+    required String name,
+    required String type,
+    required String institution,
+    required double currentValue,
+    String currency = 'BRL',
+    String? ticker,
+    double? quantity,
+    double? averagePrice,
+    double? investedValue,
+  }) async {
+    final headers =
+        await _authenticatedHeaders();
+
+    final payload =
+        <String, dynamic>{
+      'name': name,
+      'type': type,
+      'institution':
+          institution,
+      'current_value':
+          currentValue,
+      'currency': currency,
+    };
+
+    if (ticker != null &&
+        ticker.trim().isNotEmpty) {
+      payload['ticker'] =
+          ticker.trim();
+    }
+
+    if (quantity != null) {
+      payload['quantity'] =
+          quantity;
+    }
+
+    if (averagePrice != null) {
+      payload['average_price'] =
+          averagePrice;
+    }
+
+    if (investedValue != null) {
+      payload['invested_value'] =
+          investedValue;
+    }
+
+    final response =
+        await http.post(
+      Uri.parse(
+        '${ApiConfig.baseUrl}/investments/manual',
+      ),
+      headers: headers,
+      body: jsonEncode(
+        payload,
+      ),
+    );
+
+    if (response.statusCode !=
+        201) {
+      throw Exception(
+        'Erro ao adicionar investimento',
+      );
+    }
+
+    return jsonDecode(
+      response.body,
+    );
+  }
+
+  Future<Map<String, dynamic>>
+      updateManualInvestment({
+    required int id,
+    required Map<String, dynamic>
+        data,
+  }) async {
+    final headers =
+        await _authenticatedHeaders();
+
+    final response =
+        await http.patch(
+      Uri.parse(
+        '${ApiConfig.baseUrl}/investments/manual/$id',
+      ),
+      headers: headers,
+      body: jsonEncode(
+        data,
+      ),
+    );
+
+    if (response.statusCode !=
+        200) {
+      throw Exception(
+        'Erro ao atualizar investimento',
+      );
+    }
+
+    return jsonDecode(
+      response.body,
+    );
+  }
+
+  Future<void>
+      deleteManualInvestment(
+    int id,
+  ) async {
+    final headers =
+        await _authenticatedHeaders();
+
+    final response =
+        await http.delete(
+      Uri.parse(
+        '${ApiConfig.baseUrl}/investments/manual/$id',
+      ),
+      headers: headers,
+    );
+
+    if (response.statusCode !=
+        204) {
+      throw Exception(
+        'Erro ao excluir investimento',
+      );
+    }
   }
 }
