@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'home_screen.dart';
+import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -78,6 +79,15 @@ class _LoginScreenState extends State<LoginScreen> {
                       ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
                       : const Text('Entrar'),
                 ),
+              ),
+                            const SizedBox(height: 12),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                  );
+                },
+                child: const Text('Não tem conta? Criar uma'),
               ),
             ],
           ),
