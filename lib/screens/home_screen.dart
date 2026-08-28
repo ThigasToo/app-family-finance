@@ -8,6 +8,7 @@ import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
 import 'accounts_screen.dart';
 import 'investments_screen.dart';
+import 'credit_cards_screen.dart';
 import 'connect_bank_screen.dart';
 import 'login_screen.dart';
 import 'monthly_planning_screen.dart';
@@ -45,6 +46,7 @@ class _HomeScreenState
 
   double _expectedSalary = 0;
   double _expectedReceipts = 0;
+  double _pixSentCurrentMonth = 0;
 
   @override
   void initState() {
@@ -94,18 +96,28 @@ class _HomeScreenState
       final summary =
           await _financeService.getSummary();
 
+      final payload =
+          summary['payload'] ?? {};
+
+      final pixSent =
+          payload['pix_sent_current_month'];
+
       if (!mounted) return;
 
       setState(() {
         _accounts =
-            summary['payload']
-                    ?['accounts'] ??
-                [];
+            payload['accounts'] ?? [];
 
         _investments =
-            summary['payload']
-                    ?['investments'] ??
-                [];
+            payload['investments'] ?? [];
+
+        _pixSentCurrentMonth =
+            pixSent is num
+                ? pixSent.toDouble()
+                : double.tryParse(
+                      pixSent?.toString() ?? '',
+                    ) ??
+                    0;
 
         _updatedAt =
             summary['updated_at'];
@@ -406,7 +418,7 @@ class _HomeScreenState
   /// Será substituído pelos PIX
   /// efetivamente enviados no mês.
   double get _pixSentThisMonth {
-    return 0;
+    return _pixSentCurrentMonth;
   }
 
   double get _committedThisMonth {
@@ -607,10 +619,17 @@ class _HomeScreenState
                         : '$_creditCardsCount cartões',
                 valueColor:
                     AppTheme.danger,
-                onTap: () {
-                  _showComingSoon(
-                    'Cartões',
+                onTap: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          const CreditCardsScreen(),
+                    ),
                   );
+
+                  if (!mounted) return;
+
+                  await _loadSummary();
                 },
               ),
 
