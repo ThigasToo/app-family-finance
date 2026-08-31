@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/finance_service.dart';
 import '../widgets/finance_ui.dart';
+import '../widgets/privacy_finance_ui.dart';
 
 import 'institution_accounts_screen.dart';
 
@@ -228,6 +229,9 @@ class _AccountsScreenState extends State<AccountsScreen> {
       isRefreshing: _isRefreshing,
       onRefreshButton: _refresh,
       onRefresh: _loadAccounts,
+      actions: const [
+        PrivacyEyeButton(),
+      ],
       child: _buildBody(),
     );
   }
@@ -266,7 +270,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
         36,
       ),
       children: [
-        FinanceHeroCard(
+        PrivacyFinanceHeroCard(
           label: 'Saldo disponível',
           value: _totalBalance,
           details: [
@@ -321,7 +325,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                     const EdgeInsets.only(
                   bottom: 12,
                 ),
-                child: FinanceListTile(
+                child: PrivacyFinanceListTile(
                   institutionName:
                       institution.name,
                   title:
