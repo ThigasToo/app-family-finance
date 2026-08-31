@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../services/finance_service.dart';
 import '../widgets/finance_ui.dart';
+import '../widgets/privacy_finance_ui.dart';
 
 import 'add_investment_screen.dart';
 import 'institution_investments_screen.dart';
@@ -228,30 +229,6 @@ class _InvestmentsScreenState
     return 'Outros';
   }
 
-  String _initials(
-    String name,
-  ) {
-    final parts = name
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((e) => e.isNotEmpty)
-        .toList();
-
-    if (parts.isEmpty) return '?';
-
-    if (parts.length == 1) {
-      return parts.first
-          .substring(
-            0,
-            parts.first.length >= 2 ? 2 : 1,
-          )
-          .toUpperCase();
-    }
-
-    return '${parts.first[0]}${parts.last[0]}'
-        .toUpperCase();
-  }
-
   Future<void> _openInstitution(
     InvestmentInstitution institution,
   ) async {
@@ -280,6 +257,8 @@ class _InvestmentsScreenState
       onRefreshButton: _refresh,
       onRefresh: _loadInvestments,
       actions: [
+        const PrivacyEyeButton(),
+        const SizedBox(width: 8),
         FinanceIconButton(
           icon: Icons.add_rounded,
           tooltip:
@@ -326,7 +305,7 @@ class _InvestmentsScreenState
         36,
       ),
       children: [
-        FinanceHeroCard(
+        PrivacyFinanceHeroCard(
           label: 'Patrimônio investido',
           value: _totalInvestments,
           details: [
@@ -403,8 +382,8 @@ class _InvestmentsScreenState
 
               if (manualCount > 0) {
                 subtitle +=
-                    ' • $manualCount manual'
-                    '${manualCount == 1 ? '' : 'is'}';
+                    ' • $manualCount '
+                    '${manualCount == 1 ? 'manual' : 'manuais'}';
               }
 
               return Padding(
@@ -412,7 +391,7 @@ class _InvestmentsScreenState
                     const EdgeInsets.only(
                   bottom: 12,
                 ),
-                child: FinanceListTile(
+                child: PrivacyFinanceListTile(
                   institutionName:
                       institution.name,
                   title:
