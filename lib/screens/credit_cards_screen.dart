@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../services/finance_service.dart';
 import '../theme/app_theme.dart';
-import '../utils/formatters.dart';
 import '../widgets/finance_ui.dart';
+import '../widgets/privacy_finance_ui.dart';
 
 import 'institution_credit_cards_screen.dart';
 
@@ -285,30 +285,6 @@ class _CreditCardsScreenState
     return 'Outros';
   }
 
-  String _initials(
-    String name,
-  ) {
-    final parts = name
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((e) => e.isNotEmpty)
-        .toList();
-
-    if (parts.isEmpty) return '?';
-
-    if (parts.length == 1) {
-      return parts.first
-          .substring(
-            0,
-            parts.first.length >= 2 ? 2 : 1,
-          )
-          .toUpperCase();
-    }
-
-    return '${parts.first[0]}${parts.last[0]}'
-        .toUpperCase();
-  }
-
   Future<void> _openInstitution(
     CardInstitution institution,
   ) async {
@@ -336,6 +312,9 @@ class _CreditCardsScreenState
       isRefreshing: _isRefreshing,
       onRefreshButton: _refresh,
       onRefresh: _loadCards,
+      actions: const [
+        PrivacyEyeButton(),
+      ],
       child: _buildBody(),
     );
   }
@@ -412,7 +391,7 @@ class _CreditCardsScreenState
                     const EdgeInsets.only(
                   bottom: 12,
                 ),
-                child: FinanceListTile(
+                child: PrivacyFinanceListTile(
                   institutionName:
                       institution.name,
                   title:
@@ -484,10 +463,9 @@ class _CreditCardsScreenState
 
           const SizedBox(height: 7),
 
-          Text(
-            formatCurrency(
-              _totalInvoice,
-            ),
+          PrivacyMoney(
+            value:
+                _totalInvoice,
             style:
                 const TextStyle(
               color:
@@ -612,11 +590,9 @@ class _CreditCardsScreenState
 
         const SizedBox(height: 5),
 
-        Text(
-          formatCurrency(value),
-          maxLines: 1,
-          overflow:
-              TextOverflow.ellipsis,
+        PrivacyMoney(
+          value:
+              value,
           style:
               const TextStyle(
             color:
