@@ -3,10 +3,13 @@ import 'package:flutter/material.dart';
 import '../services/finance_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
+import '../widgets/finance_ui.dart';
 
 import 'institution_credit_cards_screen.dart';
 
-class CreditCardsScreen extends StatefulWidget {
+
+class CreditCardsScreen
+    extends StatefulWidget {
   const CreditCardsScreen({
     super.key,
   });
@@ -16,10 +19,10 @@ class CreditCardsScreen extends StatefulWidget {
       _CreditCardsScreenState();
 }
 
+
 class _CreditCardsScreenState
     extends State<CreditCardsScreen> {
-  final _financeService =
-      FinanceService();
+  final _financeService = FinanceService();
 
   bool _isLoading = true;
   bool _isRefreshing = false;
@@ -31,24 +34,21 @@ class _CreditCardsScreenState
   @override
   void initState() {
     super.initState();
-
     _loadCards();
   }
-
-  // =========================================================
-  // CARREGAMENTO
-  // =========================================================
 
   Future<void> _loadCards() async {
     try {
       final summary =
-          await _financeService.getSummary();
+          await _financeService
+              .getSummary();
 
       final allAccounts =
-          summary['payload']?['accounts'] ??
+          summary['payload']
+                  ?['accounts'] ??
               [];
 
-      final creditCards =
+      final cards =
           List<dynamic>.from(
         allAccounts,
       ).where(
@@ -62,17 +62,15 @@ class _CreditCardsScreenState
       if (!mounted) return;
 
       setState(() {
-        _cards = creditCards;
-
+        _cards = cards;
         _isLoading = false;
         _errorMessage = null;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
 
       setState(() {
         _isLoading = false;
-
         _errorMessage =
             'Não foi possível carregar seus cartões.';
       });
@@ -80,9 +78,7 @@ class _CreditCardsScreenState
   }
 
   Future<void> _refresh() async {
-    if (_isRefreshing) {
-      return;
-    }
+    if (_isRefreshing) return;
 
     setState(() {
       _isRefreshing = true;
@@ -90,7 +86,6 @@ class _CreditCardsScreenState
 
     try {
       await _financeService.refresh();
-
       await _loadCards();
     } catch (_) {
       await _loadCards();
@@ -103,17 +98,12 @@ class _CreditCardsScreenState
     }
   }
 
-  // =========================================================
-  // TOTAIS
-  // =========================================================
-
   double get _totalInvoice {
     double total = 0;
 
     for (final card in _cards) {
-      total += _getCardBalance(
-        card,
-      );
+      total +=
+          _getCardBalance(card);
     }
 
     return total;
@@ -123,11 +113,11 @@ class _CreditCardsScreenState
     double total = 0;
 
     for (final card in _cards) {
-      final limit =
+      final value =
           _getCreditLimit(card);
 
-      if (limit != null) {
-        total += limit;
+      if (value != null) {
+        total += value;
       }
     }
 
@@ -138,27 +128,21 @@ class _CreditCardsScreenState
     double total = 0;
 
     for (final card in _cards) {
-      final available =
+      final value =
           _getAvailableLimit(card);
 
-      if (available != null) {
-        total += available;
+      if (value != null) {
+        total += value;
       }
     }
 
     return total;
   }
 
-  // =========================================================
-  // AGRUPAMENTO
-  // =========================================================
-
   List<CardInstitution>
       get _institutions {
-    final Map<
-            String,
-            CardInstitution>
-        grouped = {};
+    final grouped =
+        <String, CardInstitution>{};
 
     for (final card in _cards) {
       final institution =
@@ -166,84 +150,61 @@ class _CreditCardsScreenState
         card,
       );
 
-      final balance =
-          _getCardBalance(
-        card,
-      );
-
-      final limit =
-          _getCreditLimit(
-        card,
-      );
-
-      final available =
-          _getAvailableLimit(
-        card,
-      );
-
-      if (!grouped.containsKey(
+      grouped.putIfAbsent(
         institution,
-      )) {
-        grouped[institution] =
-            CardInstitution(
+        () => CardInstitution(
           name: institution,
           invoiceTotal: 0,
           creditLimit: 0,
           availableLimit: 0,
           cards: [],
-        );
-      }
+        ),
+      );
 
       grouped[institution]!
           .invoiceTotal +=
-          balance;
+          _getCardBalance(card);
 
-      if (limit != null) {
-        grouped[institution]!
-            .creditLimit +=
-            limit;
-      }
+      grouped[institution]!
+          .creditLimit +=
+          _getCreditLimit(card) ??
+              0;
 
-      if (available != null) {
-        grouped[institution]!
-            .availableLimit +=
-            available;
-      }
+      grouped[institution]!
+          .availableLimit +=
+          _getAvailableLimit(card) ??
+              0;
 
       grouped[institution]!
           .cards
           .add(card);
     }
 
-    final institutions =
+    final result =
         grouped.values.toList();
 
-    institutions.sort(
+    result.sort(
       (a, b) =>
           b.invoiceTotal.compareTo(
         a.invoiceTotal,
       ),
     );
 
-    return institutions;
+    return result;
   }
-
-  // =========================================================
-  // HELPERS
-  // =========================================================
 
   double _getCardBalance(
     dynamic card,
   ) {
-    final balance =
+    final value =
         card['balance'];
 
-    if (balance is num) {
-      return balance.toDouble();
+    if (value is num) {
+      return value.toDouble();
     }
 
     return double.tryParse(
-          balance?.toString() ?? '',
+          value?.toString() ?? '',
         ) ??
         0;
   }
@@ -252,12 +213,12 @@ class _CreditCardsScreenState
       _getCreditData(
     dynamic card,
   ) {
-    final creditData =
+    final value =
         card['creditData'];
 
-    if (creditData is Map) {
+    if (value is Map) {
       return Map<String, dynamic>.from(
-        creditData,
+        value,
       );
     }
 
@@ -316,25 +277,39 @@ class _CreditCardsScreenState
 
     for (final value in candidates) {
       if (value != null &&
-          value
-              .toString()
-              .trim()
-              .isNotEmpty) {
-        return value
-            .toString()
-            .trim();
+          value.toString().trim().isNotEmpty) {
+        return value.toString().trim();
       }
     }
 
     return 'Outros';
   }
 
-  // =========================================================
-  // ABRIR INSTITUIÇÃO
-  // =========================================================
+  String _initials(
+    String name,
+  ) {
+    final parts = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((e) => e.isNotEmpty)
+        .toList();
 
-  Future<void>
-      _openInstitution(
+    if (parts.isEmpty) return '?';
+
+    if (parts.length == 1) {
+      return parts.first
+          .substring(
+            0,
+            parts.first.length >= 2 ? 2 : 1,
+          )
+          .toUpperCase();
+    }
+
+    return '${parts.first[0]}${parts.last[0]}'
+        .toUpperCase();
+  }
+
+  Future<void> _openInstitution(
     CardInstitution institution,
   ) async {
     await Navigator.of(context).push(
@@ -354,114 +329,152 @@ class _CreditCardsScreenState
     await _loadCards();
   }
 
-  // =========================================================
-  // BUILD
-  // =========================================================
-
   @override
-  Widget build(
-    BuildContext context,
-  ) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Cartões',
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Atualizar',
-            onPressed:
-                _isRefreshing
-                    ? null
-                    : _refresh,
-            icon: _isRefreshing
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child:
-                        CircularProgressIndicator(
-                      strokeWidth: 2,
-                    ),
-                  )
-                : const Icon(
-                    Icons.refresh_rounded,
-                  ),
-          ),
-        ],
-      ),
-      body: _buildBody(),
+  Widget build(BuildContext context) {
+    return FinancePage(
+      title: 'Cartões',
+      isRefreshing: _isRefreshing,
+      onRefreshButton: _refresh,
+      onRefresh: _loadCards,
+      child: _buildBody(),
     );
   }
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const Center(
-        child:
-            CircularProgressIndicator(),
+      return ListView(
+        physics:
+            const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(height: 220),
+          Center(
+            child:
+                CircularProgressIndicator(),
+          ),
+        ],
       );
     }
 
     if (_errorMessage != null) {
-      return _buildErrorState();
+      return ListView(
+        padding:
+            const EdgeInsets.all(20),
+        children: [
+          const SizedBox(height: 80),
+          const FinanceEmptyState(
+            icon:
+                Icons.error_outline_rounded,
+            title:
+                'Não foi possível carregar',
+            subtitle:
+                'Verifique sua conexão e tente novamente.',
+          ),
+        ],
+      );
     }
 
-    return RefreshIndicator(
-      onRefresh:
-          _loadCards,
-      child: ListView(
-        physics:
-            const AlwaysScrollableScrollPhysics(),
-        padding:
-            const EdgeInsets.fromLTRB(
-          20,
-          8,
-          20,
-          32,
-        ),
-        children: [
-          _buildSummaryCard(),
-
-          const SizedBox(
-            height: 30,
-          ),
-
-          _buildSectionHeader(),
-
-          const SizedBox(
-            height: 12,
-          ),
-
-          if (_institutions.isEmpty)
-            _buildEmptyState()
-          else
-            ..._institutions.map(
-              _buildInstitutionCard,
-            ),
-        ],
+    return ListView(
+      physics:
+          const AlwaysScrollableScrollPhysics(),
+      padding:
+          const EdgeInsets.fromLTRB(
+        20,
+        8,
+        20,
+        36,
       ),
+      children: [
+        _buildCreditHero(),
+
+        const SizedBox(height: 30),
+
+        FinanceSectionHeader(
+          title: 'Por instituição',
+          trailing:
+              '${_institutions.length}',
+        ),
+
+        const SizedBox(height: 12),
+
+        if (_institutions.isEmpty)
+          const FinanceEmptyState(
+            icon:
+                Icons.credit_card_rounded,
+            title:
+                'Nenhum cartão encontrado',
+            subtitle:
+                'Conecte uma instituição para visualizar seus cartões.',
+          )
+        else
+          ..._institutions.map(
+            (institution) {
+              final utilization =
+                  institution.creditLimit <=
+                          0
+                      ? 0.0
+                      : institution
+                              .invoiceTotal /
+                          institution
+                              .creditLimit;
+
+              return Padding(
+                padding:
+                    const EdgeInsets.only(
+                  bottom: 12,
+                ),
+                child: FinanceListTile(
+                  initials:
+                      _initials(
+                    institution.name,
+                  ),
+                  title:
+                      institution.name,
+                  subtitle:
+                      '${institution.cards.length} '
+                      '${institution.cards.length == 1 ? 'cartão' : 'cartões'}',
+                  value:
+                      institution.invoiceTotal,
+                  trailingText:
+                      institution.creditLimit >
+                              0
+                          ? '${(utilization * 100).toStringAsFixed(0)}% utilizado'
+                          : null,
+                  progress:
+                      institution.creditLimit >
+                              0
+                          ? utilization
+                          : null,
+                  onTap: () =>
+                      _openInstitution(
+                    institution,
+                  ),
+                ),
+              );
+            },
+          ),
+      ],
     );
   }
 
-  // =========================================================
-  // RESUMO
-  // =========================================================
-
-  Widget _buildSummaryCard() {
+  Widget _buildCreditHero() {
     return Container(
       width: double.infinity,
       padding:
-          const EdgeInsets.all(
-        24,
-      ),
+          const EdgeInsets.all(23),
       decoration: BoxDecoration(
-        color:
-            const Color(
-          0xFF315B78,
-        ),
+        gradient:
+            AppTheme.premiumGradient,
         borderRadius:
-            BorderRadius.circular(
-          24,
+            BorderRadius.circular(29),
+        border: Border.all(
+          color:
+              Colors.white
+                  .withValues(
+            alpha: 0.15,
+          ),
         ),
+        boxShadow:
+            AppTheme.floatingShadow,
       ),
       child: Column(
         crossAxisAlignment:
@@ -470,19 +483,18 @@ class _CreditCardsScreenState
           Text(
             'Total em cartões',
             style: TextStyle(
-              color: Colors.white
-                  .withValues(
-                alpha: 0.76,
+              color:
+                  Colors.white
+                      .withValues(
+                alpha: 0.68,
               ),
-              fontSize: 14,
+              fontSize: 13,
               fontWeight:
                   FontWeight.w500,
             ),
           ),
 
-          const SizedBox(
-            height: 8,
-          ),
+          const SizedBox(height: 7),
 
           Text(
             formatCurrency(
@@ -490,119 +502,98 @@ class _CreditCardsScreenState
             ),
             style:
                 const TextStyle(
-              color: Colors.white,
-              fontSize: 31,
+              color:
+                  Colors.white,
+              fontSize: 32,
               fontWeight:
                   FontWeight.w800,
-              letterSpacing: -0.8,
+              letterSpacing: -0.9,
             ),
           ),
 
-          const SizedBox(
-            height: 22,
-          ),
+          const SizedBox(height: 21),
 
-          Row(
-            children: [
-              Expanded(
-                child:
-                    _buildSummaryDetail(
-                  label:
-                      'Limite total',
-                  value:
-                      formatCurrency(
-                    _totalCreditLimit,
-                  ),
-                ),
-              ),
-
-              Container(
-                width: 1,
-                height: 38,
-                color: Colors.white
-                    .withValues(
-                  alpha: 0.18,
-                ),
-              ),
-
-              const SizedBox(
-                width: 18,
-              ),
-
-              Expanded(
-                child:
-                    _buildSummaryDetail(
-                  label:
-                      'Disponível',
-                  value:
-                      formatCurrency(
-                    _totalAvailableLimit,
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(
-            height: 18,
-          ),
-
-          Row(
-            children: [
-              Icon(
-                Icons
-                    .account_balance_outlined,
-                size: 15,
-                color: Colors.white
-                    .withValues(
-                  alpha: 0.62,
-                ),
-              ),
-
-              const SizedBox(
-                width: 6,
-              ),
-
-              Text(
-                '${_institutions.length} '
-                '${_institutions.length == 1 ? 'instituição' : 'instituições'}',
-                style: TextStyle(
-                  color: Colors.white
+          Container(
+            padding:
+                const EdgeInsets.all(
+              15,
+            ),
+            decoration:
+                BoxDecoration(
+              color:
+                  Colors.white
                       .withValues(
-                    alpha: 0.62,
+                alpha: 0.08,
+              ),
+              borderRadius:
+                  BorderRadius.circular(
+                18,
+              ),
+              border:
+                  Border.all(
+                color:
+                    Colors.white
+                        .withValues(
+                  alpha: 0.09,
+                ),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child:
+                      _heroValue(
+                    label:
+                        'Limite total',
+                    value:
+                        _totalCreditLimit,
                   ),
-                  fontSize: 11,
                 ),
-              ),
 
-              const SizedBox(
-                width: 16,
-              ),
-
-              Icon(
-                Icons
-                    .credit_card_rounded,
-                size: 15,
-                color: Colors.white
-                    .withValues(
-                  alpha: 0.62,
-                ),
-              ),
-
-              const SizedBox(
-                width: 6,
-              ),
-
-              Text(
-                '${_cards.length} '
-                '${_cards.length == 1 ? 'cartão' : 'cartões'}',
-                style: TextStyle(
-                  color: Colors.white
-                      .withValues(
-                    alpha: 0.62,
+                Container(
+                  height: 38,
+                  width: 1,
+                  color:
+                      Colors.white
+                          .withValues(
+                    alpha: 0.14,
                   ),
-                  fontSize: 11,
                 ),
+
+                const SizedBox(width: 16),
+
+                Expanded(
+                  child:
+                      _heroValue(
+                    label:
+                        'Disponível',
+                    value:
+                        _totalAvailableLimit,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 15),
+
+          Wrap(
+            spacing: 18,
+            runSpacing: 8,
+            children: [
+              FinanceHeroInfo(
+                icon:
+                    Icons.account_balance_rounded,
+                text:
+                    '${_institutions.length} '
+                    '${_institutions.length == 1 ? 'instituição' : 'instituições'}',
+              ),
+              FinanceHeroInfo(
+                icon:
+                    Icons.credit_card_rounded,
+                text:
+                    '${_cards.length} '
+                    '${_cards.length == 1 ? 'cartão' : 'cartões'}',
               ),
             ],
           ),
@@ -611,9 +602,9 @@ class _CreditCardsScreenState
     );
   }
 
-  Widget _buildSummaryDetail({
+  Widget _heroValue({
     required String label,
-    required String value,
+    required double value,
   }) {
     return Column(
       crossAxisAlignment:
@@ -622,26 +613,26 @@ class _CreditCardsScreenState
         Text(
           label,
           style: TextStyle(
-            color: Colors.white
-                .withValues(
+            color:
+                Colors.white
+                    .withValues(
               alpha: 0.58,
             ),
             fontSize: 11,
           ),
         ),
 
-        const SizedBox(
-          height: 4,
-        ),
+        const SizedBox(height: 5),
 
         Text(
-          value,
+          formatCurrency(value),
           maxLines: 1,
           overflow:
               TextOverflow.ellipsis,
           style:
               const TextStyle(
-            color: Colors.white,
+            color:
+                Colors.white,
             fontSize: 14,
             fontWeight:
                 FontWeight.w700,
@@ -650,445 +641,8 @@ class _CreditCardsScreenState
       ],
     );
   }
-
-  // =========================================================
-  // SEÇÃO
-  // =========================================================
-
-  Widget _buildSectionHeader() {
-    return Row(
-      children: [
-        const Expanded(
-          child: Text(
-            'Por instituição',
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight:
-                  FontWeight.w800,
-              letterSpacing: -0.2,
-            ),
-          ),
-        ),
-
-        Text(
-          '${_institutions.length}',
-          style: TextStyle(
-            fontSize: 13,
-            color:
-                Colors.grey.shade500,
-          ),
-        ),
-      ],
-    );
-  }
-
-  // =========================================================
-  // INSTITUIÇÃO
-  // =========================================================
-
-  Widget _buildInstitutionCard(
-    CardInstitution institution,
-  ) {
-    final utilization =
-        institution.creditLimit <= 0
-            ? 0.0
-            : institution.invoiceTotal /
-                institution.creditLimit;
-
-    return Padding(
-      padding:
-          const EdgeInsets.only(
-        bottom: 12,
-      ),
-      child: Material(
-        color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(
-          20,
-        ),
-        child: InkWell(
-          borderRadius:
-              BorderRadius.circular(
-            20,
-          ),
-          onTap: () {
-            _openInstitution(
-              institution,
-            );
-          },
-          child: Container(
-            padding:
-                const EdgeInsets.all(
-              18,
-            ),
-            decoration: BoxDecoration(
-              borderRadius:
-                  BorderRadius.circular(
-                20,
-              ),
-              border: Border.all(
-                color:
-                    Colors.grey.shade200,
-              ),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    _buildInstitutionIcon(
-                      institution.name,
-                    ),
-
-                    const SizedBox(
-                      width: 14,
-                    ),
-
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment
-                                .start,
-                        children: [
-                          Text(
-                            institution.name,
-                            style:
-                                const TextStyle(
-                              fontSize: 15,
-                              fontWeight:
-                                  FontWeight.w700,
-                            ),
-                          ),
-
-                          const SizedBox(
-                            height: 4,
-                          ),
-
-                          Text(
-                            '${institution.cards.length} '
-                            '${institution.cards.length == 1 ? 'cartão' : 'cartões'}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors
-                                  .grey.shade500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          formatCurrency(
-                            institution
-                                .invoiceTotal,
-                          ),
-                          style:
-                              const TextStyle(
-                            fontSize: 16,
-                            fontWeight:
-                                FontWeight.w800,
-                          ),
-                        ),
-
-                        const SizedBox(
-                          height: 4,
-                        ),
-
-                        Text(
-                          'em uso',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors
-                                .grey.shade500,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(
-                      width: 5,
-                    ),
-
-                    Icon(
-                      Icons
-                          .chevron_right_rounded,
-                      size: 25,
-                      color: Colors
-                          .grey.shade400,
-                    ),
-                  ],
-                ),
-
-                if (institution
-                        .creditLimit >
-                    0) ...[
-                  const SizedBox(
-                    height: 16,
-                  ),
-
-                  ClipRRect(
-                    borderRadius:
-                        BorderRadius.circular(
-                      20,
-                    ),
-                    child:
-                        LinearProgressIndicator(
-                      value: utilization
-                          .clamp(
-                            0.0,
-                            1.0,
-                          )
-                          .toDouble(),
-                      minHeight: 5,
-                      backgroundColor:
-                          AppTheme.primary
-                              .withValues(
-                        alpha: 0.08,
-                      ),
-                      valueColor:
-                          const AlwaysStoppedAnimation<
-                              Color>(
-                        AppTheme.primary,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(
-                    height: 8,
-                  ),
-
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '${(utilization * 100).toStringAsFixed(1)}% do limite utilizado',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors
-                                .grey.shade500,
-                          ),
-                        ),
-                      ),
-
-                      Text(
-                        '${formatCurrency(institution.availableLimit)} disponível',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors
-                              .grey.shade500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInstitutionIcon(
-    String institution,
-  ) {
-    return Container(
-      width: 48,
-      height: 48,
-      decoration: BoxDecoration(
-        color: AppTheme.primary
-            .withValues(
-          alpha: 0.09,
-        ),
-        borderRadius:
-            BorderRadius.circular(
-          15,
-        ),
-      ),
-      child: Center(
-        child: Text(
-          _institutionInitials(
-            institution,
-          ),
-          style: const TextStyle(
-            color:
-                AppTheme.primary,
-            fontSize: 14,
-            fontWeight:
-                FontWeight.w800,
-          ),
-        ),
-      ),
-    );
-  }
-
-  String _institutionInitials(
-    String name,
-  ) {
-    final words = name
-        .trim()
-        .split(
-          RegExp(r'\s+'),
-        )
-        .where(
-          (word) =>
-              word.isNotEmpty,
-        )
-        .toList();
-
-    if (words.isEmpty) {
-      return '?';
-    }
-
-    if (words.length == 1) {
-      final word =
-          words.first;
-
-      return word
-          .substring(
-            0,
-            word.length >= 2
-                ? 2
-                : 1,
-          )
-          .toUpperCase();
-    }
-
-    return (
-      words.first[0] +
-          words.last[0]
-    ).toUpperCase();
-  }
-
-  // =========================================================
-  // EMPTY / ERROR
-  // =========================================================
-
-  Widget _buildEmptyState() {
-    return Container(
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 24,
-        vertical: 30,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(
-          20,
-        ),
-        border: Border.all(
-          color:
-              Colors.grey.shade200,
-        ),
-      ),
-      child: Column(
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: AppTheme.primary
-                  .withValues(
-                alpha: 0.08,
-              ),
-              shape:
-                  BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.credit_card_rounded,
-              color:
-                  AppTheme.primary,
-            ),
-          ),
-
-          const SizedBox(
-            height: 14,
-          ),
-
-          const Text(
-            'Nenhum cartão encontrado',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight:
-                  FontWeight.w700,
-            ),
-          ),
-
-          const SizedBox(
-            height: 6,
-          ),
-
-          Text(
-            'Os cartões das instituições conectadas aparecerão aqui.',
-            textAlign:
-                TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
-              height: 1.4,
-              color:
-                  Colors.grey.shade500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildErrorState() {
-    return Center(
-      child: Padding(
-        padding:
-            const EdgeInsets.all(
-          28,
-        ),
-        child: Column(
-          mainAxisSize:
-              MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons
-                  .error_outline_rounded,
-              size: 42,
-              color:
-                  AppTheme.danger,
-            ),
-
-            const SizedBox(
-              height: 14,
-            ),
-
-            Text(
-              _errorMessage!,
-              textAlign:
-                  TextAlign.center,
-            ),
-
-            const SizedBox(
-              height: 20,
-            ),
-
-            ElevatedButton(
-              onPressed:
-                  _loadCards,
-              child: const Text(
-                'Tentar novamente',
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
-
-// ===========================================================
-// AGRUPAMENTO
-// ===========================================================
 
 class CardInstitution {
   final String name;
