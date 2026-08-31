@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../services/card_alias_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/card_utils.dart';
 import '../utils/formatters.dart';
 import '../widgets/finance_ui.dart';
 
@@ -8,13 +10,65 @@ import 'credit_card_transactions_screen.dart';
 
 
 class CreditCardDetailScreen
-    extends StatelessWidget {
+    extends StatefulWidget {
   final Map<String, dynamic> card;
 
   const CreditCardDetailScreen({
     super.key,
     required this.card,
   });
+
+  @override
+  State<CreditCardDetailScreen>
+      createState() =>
+          _CreditCardDetailScreenState();
+}
+
+
+class _CreditCardDetailScreenState
+    extends State<CreditCardDetailScreen> {
+  final _cardAliasService =
+      CardAliasService();
+
+  String? _customCardName;
+
+
+  Map<String, dynamic>
+      get card =>
+          widget.card;
+
+
+  // =========================================================
+  // INIT
+  // =========================================================
+
+  @override
+  void initState() {
+    super.initState();
+
+    _loadCardAlias();
+  }
+
+
+  Future<void> _loadCardAlias() async {
+    final alias =
+        await _cardAliasService
+            .getAlias(
+      cardStorageKey(
+        card,
+      ),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _customCardName =
+          alias;
+    });
+  }
+
 
   // =========================================================
   // HELPERS
@@ -34,6 +88,7 @@ class CreditCardDetailScreen
     return null;
   }
 
+
   double _asDouble(
     dynamic value,
   ) {
@@ -47,10 +102,12 @@ class CreditCardDetailScreen
         0;
   }
 
+
   double get _usedAmount =>
       _asDouble(
         card['balance'],
       );
+
 
   double get _creditLimit =>
       _asDouble(
@@ -58,17 +115,20 @@ class CreditCardDetailScreen
             'creditLimit'],
       );
 
+
   double get _availableLimit =>
       _asDouble(
         _creditData?[
             'availableCreditLimit'],
       );
 
+
   double get _minimumPayment =>
       _asDouble(
         _creditData?[
             'minimumPayment'],
       );
+
 
   double get _utilization {
     if (_creditLimit <= 0) {
@@ -79,27 +139,22 @@ class CreditCardDetailScreen
         _creditLimit;
   }
 
-  String get _cardName {
-    final marketing =
-        card['marketingName']
-            ?.toString()
-            .trim();
 
-    if (marketing != null &&
-        marketing.isNotEmpty) {
-      return marketing;
+  String get _cardName {
+    final custom =
+        _customCardName
+            ?.trim();
+
+    if (custom != null &&
+        custom.isNotEmpty) {
+      return custom;
     }
 
-    final name =
-        card['name']
-            ?.toString()
-            .trim();
-
-    return name?.isNotEmpty ==
-            true
-        ? name!
-        : 'Cartão';
+    return originalCardName(
+      card,
+    );
   }
+
 
   String get _institutionName {
     final candidates = [
@@ -126,6 +181,7 @@ class CreditCardDetailScreen
     return 'Instituição';
   }
 
+
   String get _cardNumber {
     final value =
         card['number']
@@ -147,6 +203,7 @@ class CreditCardDetailScreen
     return '•••• $last';
   }
 
+
   String get _brand {
     final value =
         _creditData?['brand']
@@ -161,17 +218,22 @@ class CreditCardDetailScreen
     switch (value.toUpperCase()) {
       case 'MASTERCARD':
         return 'Mastercard';
+
       case 'VISA':
         return 'Visa';
+
       case 'ELO':
         return 'Elo';
+
       case 'AMEX':
       case 'AMERICAN_EXPRESS':
         return 'American Express';
+
       default:
         return value;
     }
   }
+
 
   String get _level {
     final value =
@@ -192,6 +254,7 @@ class CreditCardDetailScreen
         lower.substring(1);
   }
 
+
   String get _brandAndLevel {
     if (_brand.isNotEmpty &&
         _level.isNotEmpty) {
@@ -209,6 +272,7 @@ class CreditCardDetailScreen
     return 'Cartão de crédito';
   }
 
+
   String get _status {
     final value =
         _creditData?['status']
@@ -219,15 +283,19 @@ class CreditCardDetailScreen
     switch (value) {
       case 'ACTIVE':
         return 'Ativo';
+
       case 'BLOCKED':
         return 'Bloqueado';
+
       case 'CANCELLED':
         return 'Cancelado';
+
       default:
         return value ??
             'Não informado';
     }
   }
+
 
   String get _dueDate {
     final raw =
@@ -253,10 +321,12 @@ class CreditCardDetailScreen
     }
   }
 
+
   bool get _isFlexibleLimit =>
       _creditData?[
           'isLimitFlexible'] ==
       true;
+
 
   List<dynamic>
       get _transactions {
@@ -268,6 +338,212 @@ class CreditCardDetailScreen
         : [];
   }
 
+
+  // =========================================================
+  // RENOMEAR CARTÃO
+  // =========================================================
+
+  Future<void>
+      _editCardName() async {
+    final original =
+        originalCardName(
+      card,
+    );
+
+    final controller =
+        TextEditingController(
+      text:
+          _customCardName ??
+              original,
+    );
+
+    final result =
+        await showDialog<String>(
+      context:
+          context,
+      builder:
+          (context) {
+        return AlertDialog(
+          title:
+              const Text(
+            'Renomear cartão',
+          ),
+          content:
+              Column(
+            mainAxisSize:
+                MainAxisSize.min,
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Nome original',
+                style:
+                    TextStyle(
+                  color:
+                      AppTheme.inkSoft,
+                  fontSize:
+                      11,
+                ),
+              ),
+
+              const SizedBox(
+                height: 4,
+              ),
+
+              Text(
+                original,
+                style:
+                    const TextStyle(
+                  color:
+                      AppTheme.ink,
+                  fontWeight:
+                      FontWeight.w700,
+                ),
+              ),
+
+              const SizedBox(
+                height: 18,
+              ),
+
+              TextField(
+                controller:
+                    controller,
+                autofocus:
+                    true,
+                textCapitalization:
+                    TextCapitalization.words,
+                textInputAction:
+                    TextInputAction.done,
+                decoration:
+                    const InputDecoration(
+                  labelText:
+                      'Nome do cartão',
+                  hintText:
+                      'Ex.: XP Principal',
+                  prefixIcon:
+                      Icon(
+                    Icons.edit_rounded,
+                  ),
+                ),
+                onSubmitted:
+                    (value) {
+                  Navigator.pop(
+                    context,
+                    value.trim(),
+                  );
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed:
+                  () {
+                Navigator.pop(
+                  context,
+                );
+              },
+              child:
+                  const Text(
+                'Cancelar',
+              ),
+            ),
+
+            if (_customCardName !=
+                null)
+              TextButton(
+                onPressed:
+                    () {
+                  Navigator.pop(
+                    context,
+                    '',
+                  );
+                },
+                child:
+                    const Text(
+                  'Usar original',
+                ),
+              ),
+
+            FilledButton(
+              onPressed:
+                  () {
+                Navigator.pop(
+                  context,
+                  controller.text
+                      .trim(),
+                );
+              },
+              child:
+                  const Text(
+                'Salvar',
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    controller.dispose();
+
+    if (result == null ||
+        !mounted) {
+      return;
+    }
+
+    final key =
+        cardStorageKey(
+      card,
+    );
+
+    if (result.trim().isEmpty) {
+      await _cardAliasService
+          .removeAlias(
+        key,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _customCardName =
+            null;
+      });
+    } else {
+      await _cardAliasService
+          .saveAlias(
+        cardKey:
+            key,
+        alias:
+            result.trim(),
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _customCardName =
+            result.trim();
+      });
+    }
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(
+      SnackBar(
+        content:
+            Text(
+          result.trim().isEmpty
+              ? 'Nome original restaurado.'
+              : 'Cartão renomeado.',
+        ),
+      ),
+    );
+  }
+
+
   // =========================================================
   // BUILD
   // =========================================================
@@ -277,8 +553,10 @@ class CreditCardDetailScreen
     BuildContext context,
   ) {
     return FinancePage(
-      title: 'Cartão',
-      child: ListView(
+      title:
+          'Cartão',
+      child:
+          ListView(
         physics:
             const AlwaysScrollableScrollPhysics(),
         padding:
@@ -341,14 +619,17 @@ class CreditCardDetailScreen
     );
   }
 
+
   // =========================================================
   // CARTÃO VISUAL
   // =========================================================
 
   Widget _creditCardVisual() {
     return AspectRatio(
-      aspectRatio: 1.62,
-      child: Container(
+      aspectRatio:
+          1.62,
+      child:
+          Container(
         padding:
             const EdgeInsets.all(
           22,
@@ -367,21 +648,24 @@ class CreditCardDetailScreen
             color:
                 Colors.white
                     .withValues(
-              alpha: 0.16,
+              alpha:
+                  0.16,
             ),
           ),
           boxShadow:
               AppTheme
                   .floatingShadow,
         ),
-        child: Column(
+        child:
+            Column(
           crossAxisAlignment:
               CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Expanded(
-                  child: Text(
+                  child:
+                      Text(
                     _institutionName,
                     style:
                         TextStyle(
@@ -397,12 +681,30 @@ class CreditCardDetailScreen
                   ),
                 ),
 
+                IconButton(
+                  tooltip:
+                      'Renomear cartão',
+                  onPressed:
+                      _editCardName,
+                  icon:
+                      const Icon(
+                    Icons
+                        .edit_rounded,
+                    color:
+                        Colors.white,
+                    size:
+                        19,
+                  ),
+                ),
+
                 Container(
                   padding:
                       const EdgeInsets
                           .symmetric(
-                    horizontal: 9,
-                    vertical: 5,
+                    horizontal:
+                        9,
+                    vertical:
+                        5,
                   ),
                   decoration:
                       BoxDecoration(
@@ -418,7 +720,8 @@ class CreditCardDetailScreen
                       20,
                     ),
                   ),
-                  child: Text(
+                  child:
+                      Text(
                     _status,
                     style:
                         const TextStyle(
@@ -442,31 +745,35 @@ class CreditCardDetailScreen
                   .contactless_rounded,
               color:
                   Colors.white70,
-              size: 28,
+              size:
+                  28,
             ),
 
             const SizedBox(
-              height: 18,
+              height:
+                  18,
             ),
 
             Text(
               _cardName,
-              maxLines: 1,
+              maxLines:
+                  1,
               overflow:
-                  TextOverflow
-                      .ellipsis,
+                  TextOverflow.ellipsis,
               style:
                   const TextStyle(
                 color:
                     Colors.white,
-                fontSize: 18,
+                fontSize:
+                    18,
                 fontWeight:
                     FontWeight.w800,
               ),
             ),
 
             const SizedBox(
-              height: 5,
+              height:
+                  5,
             ),
 
             Text(
@@ -476,9 +783,11 @@ class CreditCardDetailScreen
                 color:
                     Colors.white
                         .withValues(
-                  alpha: 0.66,
+                  alpha:
+                      0.66,
                 ),
-                fontSize: 11.5,
+                fontSize:
+                    11.5,
               ),
             ),
 
@@ -487,7 +796,8 @@ class CreditCardDetailScreen
             Row(
               children: [
                 Expanded(
-                  child: Text(
+                  child:
+                      Text(
                     _cardNumber,
                     style:
                         const TextStyle(
@@ -498,11 +808,11 @@ class CreditCardDetailScreen
                       fontSize:
                           14,
                       fontWeight:
-                          FontWeight
-                              .w600,
+                          FontWeight.w600,
                     ),
                   ),
                 ),
+
                 Text(
                   _brand
                       .toUpperCase(),
@@ -514,10 +824,10 @@ class CreditCardDetailScreen
                       alpha:
                           0.82,
                     ),
-                    fontSize: 12,
+                    fontSize:
+                        12,
                     fontWeight:
-                        FontWeight
-                            .w800,
+                        FontWeight.w800,
                   ),
                 ),
               ],
@@ -528,19 +838,23 @@ class CreditCardDetailScreen
     );
   }
 
+
   // =========================================================
   // LIMITE
   // =========================================================
 
   Widget _limitCard() {
     return FinanceGlassCard(
-      radius: 23,
-      child: Padding(
+      radius:
+          23,
+      child:
+          Padding(
         padding:
             const EdgeInsets.all(
           17,
         ),
-        child: Column(
+        child:
+            Column(
           crossAxisAlignment:
               CrossAxisAlignment.start,
           children: [
@@ -550,14 +864,16 @@ class CreditCardDetailScreen
                   TextStyle(
                 color:
                     AppTheme.ink,
-                fontSize: 14.5,
+                fontSize:
+                    14.5,
                 fontWeight:
                     FontWeight.w800,
               ),
             ),
 
             const SizedBox(
-              height: 18,
+              height:
+                  18,
             ),
 
             Row(
@@ -581,7 +897,8 @@ class CreditCardDetailScreen
             ),
 
             const SizedBox(
-              height: 17,
+              height:
+                  17,
             ),
 
             ClipRRect(
@@ -592,15 +909,19 @@ class CreditCardDetailScreen
               child:
                   LinearProgressIndicator(
                 value:
-                    _utilization.clamp(
-                  0.0,
-                  1.0,
-                ),
-                minHeight: 5,
+                    _utilization
+                        .clamp(
+                          0.0,
+                          1.0,
+                        )
+                        .toDouble(),
+                minHeight:
+                    5,
                 backgroundColor:
                     AppTheme.primary
                         .withValues(
-                  alpha: 0.07,
+                  alpha:
+                      0.07,
                 ),
                 valueColor:
                     const AlwaysStoppedAnimation<
@@ -611,13 +932,15 @@ class CreditCardDetailScreen
             ),
 
             const SizedBox(
-              height: 8,
+              height:
+                  8,
             ),
 
             Row(
               children: [
                 Expanded(
-                  child: Text(
+                  child:
+                      Text(
                     '${(_utilization * 100).toStringAsFixed(1)}% utilizado',
                     style:
                         const TextStyle(
@@ -629,6 +952,7 @@ class CreditCardDetailScreen
                     ),
                   ),
                 ),
+
                 Text(
                   'Limite ${formatCurrency(_creditLimit)}',
                   style:
@@ -636,7 +960,8 @@ class CreditCardDetailScreen
                     color:
                         AppTheme
                             .inkSoft,
-                    fontSize: 10.5,
+                    fontSize:
+                        10.5,
                   ),
                 ),
               ],
@@ -646,6 +971,7 @@ class CreditCardDetailScreen
       ),
     );
   }
+
 
   Widget _metric(
     String label,
@@ -661,19 +987,26 @@ class CreditCardDetailScreen
               const TextStyle(
             color:
                 AppTheme.inkSoft,
-            fontSize: 10.5,
+            fontSize:
+                10.5,
           ),
         ),
+
         const SizedBox(
-          height: 5,
+          height:
+              5,
         ),
+
         Text(
-          formatCurrency(value),
+          formatCurrency(
+            value,
+          ),
           style:
               const TextStyle(
             color:
                 AppTheme.ink,
-            fontSize: 16,
+            fontSize:
+                16,
             fontWeight:
                 FontWeight.w800,
           ),
@@ -682,19 +1015,23 @@ class CreditCardDetailScreen
     );
   }
 
+
   // =========================================================
   // FATURA
   // =========================================================
 
   Widget _invoiceCard() {
     return FinanceGlassCard(
-      radius: 23,
-      child: Padding(
+      radius:
+          23,
+      child:
+          Padding(
         padding:
             const EdgeInsets.all(
           17,
         ),
-        child: Column(
+        child:
+            Column(
           children: [
             Row(
               children: [
@@ -703,20 +1040,24 @@ class CreditCardDetailScreen
                       Icons
                           .receipt_long_rounded,
                 ),
+
                 const SizedBox(
-                  width: 13,
+                  width:
+                      13,
                 ),
+
                 const Expanded(
-                  child: Text(
+                  child:
+                      Text(
                     'Resumo da fatura',
                     style:
                         TextStyle(
                       color:
                           AppTheme.ink,
-                      fontSize: 14,
+                      fontSize:
+                          14,
                       fontWeight:
-                          FontWeight
-                              .w800,
+                          FontWeight.w800,
                     ),
                   ),
                 ),
@@ -724,7 +1065,8 @@ class CreditCardDetailScreen
             ),
 
             const SizedBox(
-              height: 17,
+              height:
+                  17,
             ),
 
             _infoRow(
@@ -751,36 +1093,53 @@ class CreditCardDetailScreen
     );
   }
 
+
+  // =========================================================
+  // INFORMAÇÕES
+  // =========================================================
+
   Widget _informationCard() {
     return FinanceGlassCard(
-      radius: 23,
-      child: Padding(
+      radius:
+          23,
+      child:
+          Padding(
         padding:
             const EdgeInsets.all(
           17,
         ),
-        child: Column(
+        child:
+            Column(
           children: [
+            _infoRow(
+              'Nome',
+              _cardName,
+            ),
+
             _infoRow(
               'Instituição',
               _institutionName,
             ),
+
             _infoRow(
               'Bandeira',
               _brand.isEmpty
                   ? 'Não informado'
                   : _brand,
             ),
+
             _infoRow(
               'Categoria',
               _level.isEmpty
                   ? 'Não informado'
                   : _level,
             ),
+
             _infoRow(
               'Status',
               _status,
             ),
+
             _infoRow(
               'Limite flexível',
               _isFlexibleLimit
@@ -793,6 +1152,7 @@ class CreditCardDetailScreen
     );
   }
 
+
   Widget _infoRow(
     String label,
     String value,
@@ -800,23 +1160,29 @@ class CreditCardDetailScreen
     return Padding(
       padding:
           const EdgeInsets.symmetric(
-        vertical: 7,
+        vertical:
+            7,
       ),
-      child: Row(
+      child:
+          Row(
         children: [
           Expanded(
-            child: Text(
+            child:
+                Text(
               label,
               style:
                   const TextStyle(
                 color:
                     AppTheme.inkSoft,
-                fontSize: 11.5,
+                fontSize:
+                    11.5,
               ),
             ),
           ),
+
           Flexible(
-            child: Text(
+            child:
+                Text(
               value,
               textAlign:
                   TextAlign.right,
@@ -824,7 +1190,8 @@ class CreditCardDetailScreen
                   const TextStyle(
                 color:
                     AppTheme.ink,
-                fontSize: 11.5,
+                fontSize:
+                    11.5,
                 fontWeight:
                     FontWeight.w700,
               ),
@@ -835,41 +1202,54 @@ class CreditCardDetailScreen
     );
   }
 
+
+  // =========================================================
+  // MOVIMENTAÇÕES
+  // =========================================================
+
   Widget _transactionsButton(
     BuildContext context,
   ) {
     return FinanceGlassCard(
-      radius: 22,
-      onTap: () {
+      radius:
+          22,
+      onTap:
+          () {
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) =>
                 CreditCardTransactionsScreen(
-              card: card,
+              card:
+                  card,
             ),
           ),
         );
       },
-      child: Padding(
+      child:
+          Padding(
         padding:
             const EdgeInsets.all(
           16,
         ),
-        child: Row(
+        child:
+            Row(
           children: [
             const FinanceIconBubble(
               icon:
                   Icons
                       .receipt_long_rounded,
             ),
+
             const SizedBox(
-              width: 14,
+              width:
+                  14,
             ),
+
             Expanded(
-              child: Column(
+              child:
+                  Column(
                 crossAxisAlignment:
-                    CrossAxisAlignment
-                        .start,
+                    CrossAxisAlignment.start,
                 children: [
                   const Text(
                     'Ver todas as compras',
@@ -877,28 +1257,32 @@ class CreditCardDetailScreen
                         TextStyle(
                       color:
                           AppTheme.ink,
-                      fontSize: 14,
+                      fontSize:
+                          14,
                       fontWeight:
-                          FontWeight
-                              .w700,
+                          FontWeight.w700,
                     ),
                   ),
+
                   const SizedBox(
-                    height: 4,
+                    height:
+                        4,
                   ),
+
                   Text(
                     '${_transactions.length} movimentações',
                     style:
                         const TextStyle(
                       color:
-                          AppTheme
-                              .inkSoft,
-                      fontSize: 11,
+                          AppTheme.inkSoft,
+                      fontSize:
+                          11,
                     ),
                   ),
                 ],
               ),
             ),
+
             const Icon(
               Icons
                   .chevron_right_rounded,

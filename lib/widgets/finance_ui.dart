@@ -1,5 +1,5 @@
 import 'dart:ui';
-
+import '../services/privacy_service.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
@@ -1088,6 +1088,100 @@ class InstitutionLogo
           },
         ),
       ),
+    );
+  }
+}
+
+// ===========================================================
+// PRIVACY MONEY
+// ===========================================================
+
+class PrivacyMoney extends StatelessWidget {
+  final num? value;
+
+  final TextStyle? style;
+
+  final String hiddenText;
+
+  const PrivacyMoney({
+    super.key,
+    required this.value,
+    this.style,
+    this.hiddenText = '••••••',
+  });
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return ValueListenableBuilder<bool>(
+      valueListenable:
+          PrivacyService
+              .instance
+              .valuesVisible,
+      builder:
+          (
+        context,
+        visible,
+        child,
+      ) {
+        return Text(
+          visible
+              ? formatCurrency(
+                  value,
+                )
+              : hiddenText,
+          style:
+              style,
+        );
+      },
+    );
+  }
+}
+
+
+// ===========================================================
+// PRIVACY EYE
+// ===========================================================
+
+class PrivacyEyeButton
+    extends StatelessWidget {
+  const PrivacyEyeButton({
+    super.key,
+  });
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return ValueListenableBuilder<bool>(
+      valueListenable:
+          PrivacyService
+              .instance
+              .valuesVisible,
+      builder:
+          (
+        context,
+        visible,
+        child,
+      ) {
+        return FinanceIconButton(
+          icon:
+              visible
+                  ? Icons
+                      .visibility_outlined
+                  : Icons
+                      .visibility_off_outlined,
+          tooltip:
+              visible
+                  ? 'Ocultar valores'
+                  : 'Mostrar valores',
+          onTap:
+              PrivacyService
+                  .instance
+                  .toggle,
+        );
+      },
     );
   }
 }

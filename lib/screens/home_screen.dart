@@ -3,7 +3,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-
+import 'profile_screen.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
 import '../services/finance_service.dart';
@@ -1412,75 +1412,93 @@ class _HomeScreenState extends State<HomeScreen> {
   // =========================================================
 
   Widget _buildHeader() {
-    return Row(
-      crossAxisAlignment:
-          CrossAxisAlignment.center,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Olá, $_firstName',
-                style: TextStyle(
-                  color:
-                      AppTheme.inkSoft,
-                  fontSize: 14,
-                  fontWeight:
-                      FontWeight.w500,
-                ),
+  return Row(
+    crossAxisAlignment:
+        CrossAxisAlignment.center,
+    children: [
+      Expanded(
+        child: Column(
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Olá, $_firstName',
+              style: const TextStyle(
+                color: AppTheme.inkSoft,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
               ),
-              const SizedBox(
-                height: 3,
+            ),
+            const SizedBox(
+              height: 3,
+            ),
+            const Text(
+              'Sua vida financeira',
+              style: TextStyle(
+                color: AppTheme.ink,
+                fontSize: 25,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.7,
               ),
-              const Text(
-                'Sua vida financeira',
-                style: TextStyle(
-                  color:
-                      AppTheme.ink,
-                  fontSize: 25,
-                  fontWeight:
-                      FontWeight.w800,
-                  letterSpacing:
-                      -0.7,
-                ),
+            ),
+          ],
+        ),
+      ),
+
+      _buildHeaderAction(
+        icon:
+            Icons.person_outline_rounded,
+        tooltip:
+            'Perfil',
+        onTap: () async {
+          if (_user == null) {
+            return;
+          }
+
+          await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) =>
+                  ProfileScreen(
+                user: _user!,
+                accounts: _accounts,
+                valuesVisible:
+                    _valuesVisible,
+
+                onValuesVisibilityChanged:
+                    (value) async {
+                  if (!mounted) {
+                    return;
+                  }
+
+                  setState(() {
+                    _valuesVisible =
+                        value;
+                  });
+
+                  await _storage.write(
+                    key:
+                        _privacyStorageKey,
+                    value:
+                        value.toString(),
+                  );
+                },
+
+                onConnectionChanged:
+                    () async {
+                  await _loadSummary();
+                },
               ),
-            ],
-          ),
-        ),
+            ),
+          );
 
-        _buildHeaderAction(
-          icon:
-              _valuesVisible
-                  ? Icons
-                      .visibility_outlined
-                  : Icons
-                      .visibility_off_outlined,
-          tooltip:
-              _valuesVisible
-                  ? 'Ocultar valores'
-                  : 'Mostrar valores',
-          onTap:
-              _toggleValuesVisibility,
-        ),
-
-        const SizedBox(
-          width: 8,
-        ),
-
-        _buildHeaderAction(
-          icon:
-              Icons
-                  .person_outline_rounded,
-          tooltip:
-              'Perfil',
-          onTap:
-              _showAccountMenu,
-        ),
-      ],
-    );
-  }
+          if (mounted) {
+            await _loadSummary();
+          }
+        },
+      ),
+    ],
+  );
+}
 
   Widget _buildHeaderAction({
     required IconData icon,
@@ -2369,112 +2387,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  // =========================================================
-  // PERFIL
-  // =========================================================
-
-  void _showAccountMenu() {
-    showModalBottomSheet(
-      context: context,
-      showDragHandle: true,
-      backgroundColor:
-          Colors.transparent,
-      builder: (context) {
-        return ClipRRect(
-          borderRadius:
-              const BorderRadius
-                  .vertical(
-            top:
-                Radius.circular(
-              28,
-            ),
-          ),
-          child: BackdropFilter(
-            filter:
-                ImageFilter.blur(
-              sigmaX: 22,
-              sigmaY: 22,
-            ),
-            child: Container(
-              decoration:
-                  BoxDecoration(
-                color:
-                    Colors.white
-                        .withValues(
-                  alpha: 0.88,
-                ),
-                borderRadius:
-                    const BorderRadius
-                        .vertical(
-                  top:
-                      Radius.circular(
-                    28,
-                  ),
-                ),
-              ),
-              child: SafeArea(
-                child: Padding(
-                  padding:
-                      const EdgeInsets
-                          .fromLTRB(
-                    14,
-                    4,
-                    14,
-                    18,
-                  ),
-                  child: Column(
-                    mainAxisSize:
-                        MainAxisSize.min,
-                    children: [
-                      ListTile(
-                        leading:
-                            const Icon(
-                          Icons
-                              .add_link_rounded,
-                        ),
-                        title:
-                            const Text(
-                          'Conectar instituição',
-                        ),
-                        onTap: () {
-                          Navigator.pop(
-                            context,
-                          );
-                          _handleConnectAccount();
-                        },
-                      ),
-                      ListTile(
-                        leading:
-                            const Icon(
-                          Icons
-                              .logout_rounded,
-                        ),
-                        title:
-                            const Text(
-                          'Sair',
-                        ),
-                        textColor:
-                            AppTheme.danger,
-                        iconColor:
-                            AppTheme.danger,
-                        onTap: () {
-                          Navigator.pop(
-                            context,
-                          );
-                          _handleLogout();
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 }

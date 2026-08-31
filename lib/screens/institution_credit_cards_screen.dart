@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import '../widgets/card_name.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
 import '../widgets/finance_ui.dart';
@@ -698,22 +698,17 @@ class InstitutionCreditCardsScreen
                           CrossAxisAlignment
                               .start,
                       children: [
-                        Text(
-                          _getCardName(
-                            card,
-                          ),
-                          maxLines: 2,
-                          overflow:
-                              TextOverflow
-                                  .ellipsis,
+                        CardName(
+                          card:
+                              card,
                           style:
                               const TextStyle(
                             color:
                                 AppTheme.ink,
-                            fontSize: 14.5,
+                            fontSize:
+                                14.5,
                             fontWeight:
-                                FontWeight
-                                    .w700,
+                                FontWeight.w700,
                           ),
                         ),
 

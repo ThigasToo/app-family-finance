@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'screens/login_screen.dart';
+import 'screens/startup_screen.dart';
 import 'theme/app_theme.dart';
 
 
@@ -22,7 +22,8 @@ class FamilyFinanceApp
     BuildContext context,
   ) {
     return MaterialApp(
-      title: 'Family Finance',
+      title:
+          'Family Finance',
 
       debugShowCheckedModeBanner:
           false,
@@ -31,7 +32,7 @@ class FamilyFinanceApp
           AppTheme.light,
 
       home:
-          const LoginScreen(),
+          const StartupScreen(),
     );
   }
 }
