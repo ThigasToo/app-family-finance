@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
+import '../widgets/finance_ui.dart';
+
 
 class CreditCardTransactionsScreen
     extends StatelessWidget {
@@ -46,12 +48,12 @@ class CreditCardTransactionsScreen
     return result;
   }
 
-  Map<DateTime, List<Map<String, dynamic>>>
+  Map<DateTime,
+          List<Map<String, dynamic>>>
       get _groupedTransactions {
-    final Map<
-            DateTime,
-            List<Map<String, dynamic>>>
-        grouped = {};
+    final grouped =
+        <DateTime,
+            List<Map<String, dynamic>>>{};
 
     for (final transaction
         in _transactions) {
@@ -60,7 +62,8 @@ class CreditCardTransactionsScreen
         transaction,
       );
 
-      final key = DateTime(
+      final key =
+          DateTime(
         date.year,
         date.month,
         date.day,
@@ -80,28 +83,38 @@ class CreditCardTransactionsScreen
   }
 
   // =========================================================
-  // DADOS DO CARTÃO
+  // CARTÃO
   // =========================================================
 
   String get _cardName {
+    final marketing =
+        card['marketingName']
+            ?.toString()
+            .trim();
+
+    if (marketing != null &&
+        marketing.isNotEmpty) {
+      return marketing;
+    }
+
     final value =
         card['name']
             ?.toString()
             .trim();
 
-    if (value != null &&
-        value.isNotEmpty) {
-      return value;
-    }
-
-    return 'Cartão';
+    return value?.isNotEmpty ==
+            true
+        ? value!
+        : 'Cartão';
   }
 
   String get _institutionName {
     final candidates = [
       card['institution_name'],
-      card['resolved_institution'],
+      card[
+          'resolved_institution'],
       card['institution'],
+      card['institutionName'],
     ];
 
     for (final candidate
@@ -123,19 +136,26 @@ class CreditCardTransactionsScreen
   String get _cardNumber {
     final value =
         card['number']
-            ?.toString()
-            .trim() ??
-        '';
+                ?.toString()
+                .trim() ??
+            '';
 
     if (value.isEmpty) {
       return '';
     }
 
-    return '•••• ${value.length <= 4 ? value : value.substring(value.length - 4)}';
+    final last =
+        value.length <= 4
+            ? value
+            : value.substring(
+                value.length - 4,
+              );
+
+    return '•••• $last';
   }
 
   // =========================================================
-  // TOTAIS
+  // TOTAL
   // =========================================================
 
   double get _purchasesTotal {
@@ -156,48 +176,37 @@ class CreditCardTransactionsScreen
     return total;
   }
 
-  int get _purchasesCount {
-    return _transactions.where(
-      _isPurchase,
-    ).length;
-  }
+  int get _purchasesCount =>
+      _transactions
+          .where(
+            _isPurchase,
+          )
+          .length;
 
   // =========================================================
   // CLASSIFICAÇÃO
   // =========================================================
 
+  String _normalize(
+    dynamic value,
+  ) {
+    return value
+            ?.toString()
+            .trim()
+            .toUpperCase() ??
+        '';
+  }
+
   bool _isPurchase(
     Map<String, dynamic> transaction,
   ) {
-    final type =
-        _normalize(
-      transaction['type'],
-    );
-
-    final category =
-        _normalize(
-      transaction['category'],
-    );
-
-    final description =
-        _normalize(
-      transaction['description'],
-    );
-
-    final descriptionRaw =
-        _normalize(
-      transaction['descriptionRaw'],
-    );
-
     final combined =
-        '$type $category '
-        '$description '
-        '$descriptionRaw';
+        '${_normalize(transaction['type'])} '
+        '${_normalize(transaction['category'])} '
+        '${_normalize(transaction['description'])} '
+        '${_normalize(transaction['descriptionRaw'])}';
 
-    // Pagamento de fatura não deve
-    // aparecer como compra.
-    if (
-        combined.contains(
+    if (combined.contains(
           'PAYMENT',
         ) ||
         combined.contains(
@@ -209,9 +218,7 @@ class CreditCardTransactionsScreen
       return false;
     }
 
-    // Estornos também são separados.
-    if (
-        combined.contains(
+    if (combined.contains(
           'REFUND',
         ) ||
         combined.contains(
@@ -235,8 +242,7 @@ class CreditCardTransactionsScreen
         '${_normalize(transaction['description'])} '
         '${_normalize(transaction['descriptionRaw'])}';
 
-    if (
-        combined.contains(
+    if (combined.contains(
           'REFUND',
         ) ||
         combined.contains(
@@ -248,8 +254,7 @@ class CreditCardTransactionsScreen
       return 'Estorno';
     }
 
-    if (
-        combined.contains(
+    if (combined.contains(
           'PAYMENT',
         ) ||
         combined.contains(
@@ -265,25 +270,16 @@ class CreditCardTransactionsScreen
   }
 
   // =========================================================
-  // HELPERS DA TRANSAÇÃO
+  // HELPERS
   // =========================================================
-
-  String _normalize(
-    dynamic value,
-  ) {
-    return value
-        ?.toString()
-        .trim()
-        .toUpperCase() ??
-        '';
-  }
 
   DateTime _transactionDate(
     Map<String, dynamic> transaction,
   ) {
     final candidates = [
       transaction['date'],
-      transaction['transactionDate'],
+      transaction[
+          'transactionDate'],
       transaction['createdAt'],
       transaction['updatedAt'],
     ];
@@ -340,10 +336,11 @@ class CreditCardTransactionsScreen
     Map<String, dynamic> transaction,
   ) {
     final candidates = [
-      transaction['description'],
-      transaction['descriptionRaw'],
       transaction['merchant']
           ?['name'],
+      transaction['description'],
+      transaction[
+          'descriptionRaw'],
     ];
 
     for (final candidate
@@ -370,40 +367,35 @@ class CreditCardTransactionsScreen
             ?.toString()
             .trim();
 
-    if (value == null ||
-        value.isEmpty) {
-      return null;
-    }
-
-    return value;
+    return value?.isNotEmpty ==
+            true
+        ? value
+        : null;
   }
 
   String? _installmentText(
     Map<String, dynamic> transaction,
   ) {
-    final creditCardMetadata =
+    final metadata =
         transaction[
             'creditCardMetadata'];
 
-    if (creditCardMetadata is Map) {
-      final installmentNumber =
-          creditCardMetadata[
+    if (metadata is Map) {
+      final current =
+          metadata[
               'installmentNumber'];
 
-      final totalInstallments =
-          creditCardMetadata[
+      final total =
+          metadata[
               'totalInstallments'];
 
-      if (installmentNumber !=
-              null &&
-          totalInstallments !=
-              null) {
-        return '$installmentNumber/'
-            '$totalInstallments';
+      if (current != null &&
+          total != null) {
+        return '$current/$total';
       }
     }
 
-    final installment =
+    final current =
         transaction[
             'installmentNumber'];
 
@@ -411,12 +403,50 @@ class CreditCardTransactionsScreen
         transaction[
             'totalInstallments'];
 
-    if (installment != null &&
+    if (current != null &&
         total != null) {
-      return '$installment/$total';
+      return '$current/$total';
     }
 
     return null;
+  }
+
+  IconData _categoryIcon(
+    Map<String, dynamic> transaction,
+  ) {
+    final value =
+        '${_category(transaction) ?? ''} '
+                '${_description(transaction)}'
+            .toUpperCase();
+
+    if (value.contains('FOOD') ||
+        value.contains('RESTAUR') ||
+        value.contains('ALIMENT')) {
+      return Icons
+          .restaurant_rounded;
+    }
+
+    if (value.contains('TRANSPORT') ||
+        value.contains('UBER')) {
+      return Icons
+          .directions_car_rounded;
+    }
+
+    if (value.contains('STREAM') ||
+        value.contains('NETFLIX') ||
+        value.contains('SPOTIFY')) {
+      return Icons
+          .subscriptions_rounded;
+    }
+
+    if (value.contains('MARKET') ||
+        value.contains('MERCADO')) {
+      return Icons
+          .shopping_cart_rounded;
+    }
+
+    return Icons
+        .shopping_bag_rounded;
   }
 
   // =========================================================
@@ -437,13 +467,11 @@ class CreditCardTransactionsScreen
                 b.compareTo(a),
           );
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Compras',
-        ),
-      ),
-      body: ListView(
+    return FinancePage(
+      title: 'Compras',
+      child: ListView(
+        physics:
+            const AlwaysScrollableScrollPhysics(),
         padding:
             const EdgeInsets.fromLTRB(
           20,
@@ -452,30 +480,73 @@ class CreditCardTransactionsScreen
           36,
         ),
         children: [
-          _buildHeader(),
-
-          const SizedBox(
-            height: 20,
+          FinanceHeroCard(
+            label:
+                'Total das compras',
+            value:
+                _purchasesTotal,
+            details: [
+              FinanceHeroInfo(
+                icon:
+                    Icons
+                        .credit_card_rounded,
+                text:
+                    _cardName,
+              ),
+              FinanceHeroInfo(
+                icon:
+                    Icons
+                        .account_balance_rounded,
+                text:
+                    _institutionName,
+              ),
+              if (_cardNumber
+                  .isNotEmpty)
+                FinanceHeroInfo(
+                  icon:
+                      Icons.tag_rounded,
+                  text:
+                      _cardNumber,
+                ),
+              FinanceHeroInfo(
+                icon:
+                    Icons
+                        .shopping_bag_rounded,
+                text:
+                    '$_purchasesCount compras',
+              ),
+            ],
           ),
-
-          _buildSummary(),
 
           const SizedBox(
             height: 30,
           ),
 
-          _buildSectionHeader(),
+          FinanceSectionHeader(
+            title:
+                'Movimentações',
+            trailing:
+                '${_transactions.length}',
+          ),
 
           const SizedBox(
-            height: 12,
+            height: 14,
           ),
 
           if (_transactions.isEmpty)
-            _buildEmptyState()
+            const FinanceEmptyState(
+              icon:
+                  Icons
+                      .receipt_long_outlined,
+              title:
+                  'Nenhuma compra encontrada',
+              subtitle:
+                  'As movimentações deste cartão aparecerão aqui.',
+            )
           else
             ...dates.map(
               (date) =>
-                  _buildDayGroup(
+                  _dayGroup(
                 date,
                 grouped[date]!,
               ),
@@ -485,208 +556,7 @@ class CreditCardTransactionsScreen
     );
   }
 
-  // =========================================================
-  // HEADER
-  // =========================================================
-
-  Widget _buildHeader() {
-    return Container(
-      width: double.infinity,
-      padding:
-          const EdgeInsets.all(
-        20,
-      ),
-      decoration: BoxDecoration(
-        color:
-            const Color(
-          0xFF315B78,
-        ),
-        borderRadius:
-            BorderRadius.circular(
-          22,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-        children: [
-          Text(
-            _institutionName,
-            style: TextStyle(
-              color: Colors.white
-                  .withValues(
-                alpha: 0.65,
-              ),
-              fontSize: 12,
-            ),
-          ),
-
-          const SizedBox(
-            height: 5,
-          ),
-
-          Text(
-            _cardName,
-            maxLines: 2,
-            overflow:
-                TextOverflow.ellipsis,
-            style:
-                const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight:
-                  FontWeight.w800,
-            ),
-          ),
-
-          if (_cardNumber
-              .isNotEmpty) ...[
-            const SizedBox(
-              height: 5,
-            ),
-
-            Text(
-              _cardNumber,
-              style: TextStyle(
-                color: Colors.white
-                    .withValues(
-                  alpha: 0.55,
-                ),
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  // =========================================================
-  // RESUMO
-  // =========================================================
-
-  Widget _buildSummary() {
-    return Container(
-      padding:
-          const EdgeInsets.all(
-        18,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(
-          20,
-        ),
-        border: Border.all(
-          color:
-              Colors.grey.shade200,
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildMetric(
-              'Compras',
-              '$_purchasesCount',
-            ),
-          ),
-
-          Container(
-            width: 1,
-            height: 38,
-            color:
-                Colors.grey.shade200,
-          ),
-
-          const SizedBox(
-            width: 18,
-          ),
-
-          Expanded(
-            child: _buildMetric(
-              'Total',
-              formatCurrency(
-                _purchasesTotal,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMetric(
-    String label,
-    String value,
-  ) {
-    return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            color:
-                Colors.grey.shade500,
-          ),
-        ),
-
-        const SizedBox(
-          height: 4,
-        ),
-
-        Text(
-          value,
-          maxLines: 1,
-          overflow:
-              TextOverflow.ellipsis,
-          style:
-              const TextStyle(
-            fontSize: 17,
-            fontWeight:
-                FontWeight.w800,
-          ),
-        ),
-      ],
-    );
-  }
-
-  // =========================================================
-  // SEÇÃO
-  // =========================================================
-
-  Widget _buildSectionHeader() {
-    return Row(
-      children: [
-        const Expanded(
-          child: Text(
-            'Movimentações',
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight:
-                  FontWeight.w800,
-            ),
-          ),
-        ),
-
-        Text(
-          '${_transactions.length}',
-          style: TextStyle(
-            fontSize: 13,
-            color:
-                Colors.grey.shade500,
-          ),
-        ),
-      ],
-    );
-  }
-
-  // =========================================================
-  // AGRUPAMENTO POR DIA
-  // =========================================================
-
-  Widget _buildDayGroup(
+  Widget _dayGroup(
     DateTime date,
     List<Map<String, dynamic>>
         transactions,
@@ -700,51 +570,44 @@ class CreditCardTransactionsScreen
         crossAxisAlignment:
             CrossAxisAlignment.start,
         children: [
-          Text(
-            _formatDate(
-              date,
+          Padding(
+            padding:
+                const EdgeInsets.only(
+              left: 3,
+              bottom: 8,
             ),
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight:
-                  FontWeight.w700,
-              color:
-                  Colors.grey.shade600,
-            ),
-          ),
-
-          const SizedBox(
-            height: 8,
-          ),
-
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius:
-                  BorderRadius.circular(
-                18,
-              ),
-              border: Border.all(
+            child: Text(
+              _formatDate(date),
+              style:
+                  const TextStyle(
                 color:
-                    Colors.grey.shade200,
+                    AppTheme.inkSoft,
+                fontSize: 11,
+                fontWeight:
+                    FontWeight.w700,
               ),
             ),
+          ),
+
+          FinanceGlassCard(
+            radius: 20,
             child: Column(
               children:
                   transactions
                       .asMap()
                       .entries
                       .map(
-                (entry) {
-                  return _buildTransaction(
-                    entry.value,
-                    showDivider:
-                        entry.key !=
-                            transactions.length -
-                                1,
-                  );
-                },
-              ).toList(),
+                (entry) =>
+                    _transactionRow(
+                  entry.value,
+                  showDivider:
+                      entry.key !=
+                          transactions
+                                  .length -
+                              1,
+                ),
+              )
+                      .toList(),
             ),
           ),
         ],
@@ -752,11 +615,7 @@ class CreditCardTransactionsScreen
     );
   }
 
-  // =========================================================
-  // LINHA DA TRANSAÇÃO
-  // =========================================================
-
-  Widget _buildTransaction(
+  Widget _transactionRow(
     Map<String, dynamic> transaction, {
     required bool showDivider,
   }) {
@@ -787,59 +646,54 @@ class CreditCardTransactionsScreen
         kind ==
             'Pagamento de fatura';
 
+    String subtitle =
+        category ?? kind;
+
+    if (installment != null) {
+      subtitle +=
+          ' • Parcela $installment';
+    }
+
     return Container(
       padding:
           const EdgeInsets.symmetric(
-        horizontal: 16,
+        horizontal: 15,
         vertical: 14,
       ),
-      decoration: BoxDecoration(
-        border: showDivider
-            ? Border(
-                bottom:
-                    BorderSide(
-                  color: Colors
-                      .grey.shade100,
-                ),
-              )
-            : null,
+      decoration:
+          BoxDecoration(
+        border:
+            showDivider
+                ? Border(
+                    bottom:
+                        BorderSide(
+                      color:
+                          AppTheme.line
+                              .withValues(
+                        alpha:
+                            0.65,
+                      ),
+                    ),
+                  )
+                : null,
       ),
       child: Row(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration:
-                BoxDecoration(
-              color: AppTheme
-                  .primary
-                  .withValues(
-                alpha: 0.07,
-              ),
-              borderRadius:
-                  BorderRadius.circular(
-                13,
-              ),
-            ),
-            child: Icon(
-              isRefund
-                  ? Icons
-                      .undo_rounded
-                  : isPayment
-                      ? Icons
-                          .payments_outlined
-                      : Icons
-                          .shopping_bag_outlined,
-              size: 19,
-              color:
-                  AppTheme.primary,
-            ),
+          FinanceIconBubble(
+            icon:
+                isPayment
+                    ? Icons
+                        .payments_rounded
+                    : isRefund
+                        ? Icons
+                            .undo_rounded
+                        : _categoryIcon(
+                            transaction,
+                          ),
           ),
 
           const SizedBox(
-            width: 12,
+            width: 13,
           ),
 
           Expanded(
@@ -853,10 +707,13 @@ class CreditCardTransactionsScreen
                   ),
                   maxLines: 2,
                   overflow:
-                      TextOverflow.ellipsis,
+                      TextOverflow
+                          .ellipsis,
                   style:
                       const TextStyle(
-                    fontSize: 13,
+                    color:
+                        AppTheme.ink,
+                    fontSize: 13.5,
                     fontWeight:
                         FontWeight.w700,
                   ),
@@ -866,84 +723,46 @@ class CreditCardTransactionsScreen
                   height: 4,
                 ),
 
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: [
-                    _buildTag(
-                      kind,
-                    ),
-
-                    if (category !=
-                        null)
-                      _buildTag(
-                        category,
-                      ),
-
-                    if (installment !=
-                        null)
-                      _buildTag(
-                        '$installment parcelas',
-                      ),
-                  ],
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow:
+                      TextOverflow
+                          .ellipsis,
+                  style:
+                      const TextStyle(
+                    color:
+                        AppTheme
+                            .inkSoft,
+                    fontSize: 10.5,
+                  ),
                 ),
               ],
             ),
           ),
 
           const SizedBox(
-            width: 12,
+            width: 10,
           ),
 
           Text(
-            '${isRefund || isPayment ? '-' : ''}'
+            '${isRefund ? '+' : ''}'
             '${formatCurrency(amount)}',
             style: TextStyle(
-              fontSize: 13,
+              color:
+                  isRefund
+                      ? AppTheme
+                          .success
+                      : AppTheme.ink,
+              fontSize: 13.5,
               fontWeight:
                   FontWeight.w800,
-              color:
-                  isRefund || isPayment
-                      ? AppTheme.primary
-                      : Colors.black87,
             ),
           ),
         ],
       ),
     );
   }
-
-  Widget _buildTag(
-    String text,
-  ) {
-    return Container(
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 7,
-        vertical: 3,
-      ),
-      decoration: BoxDecoration(
-        color:
-            Colors.grey.shade100,
-        borderRadius:
-            BorderRadius.circular(
-          20,
-        ),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 9,
-          color:
-              Colors.grey.shade600,
-        ),
-      ),
-    );
-  }
-
-  // =========================================================
-  // DATA
-  // =========================================================
 
   String _formatDate(
     DateTime date,
@@ -958,122 +777,41 @@ class CreditCardTransactionsScreen
       now.day,
     );
 
-    final target =
+    final value =
         DateTime(
       date.year,
       date.month,
       date.day,
     );
 
-    final difference =
-        today
-            .difference(
-          target,
-        )
-            .inDays;
-
-    if (difference == 0) {
-      return 'Hoje';
+    if (value == today) {
+      return 'HOJE';
     }
 
-    if (difference == 1) {
-      return 'Ontem';
+    if (value ==
+        today.subtract(
+          const Duration(days: 1),
+        )) {
+      return 'ONTEM';
     }
 
-    final day =
-        date.day
-            .toString()
-            .padLeft(
-              2,
-              '0',
-            );
+    const months = [
+      'JAN',
+      'FEV',
+      'MAR',
+      'ABR',
+      'MAI',
+      'JUN',
+      'JUL',
+      'AGO',
+      'SET',
+      'OUT',
+      'NOV',
+      'DEZ',
+    ];
 
-    final month =
-        date.month
-            .toString()
-            .padLeft(
-              2,
-              '0',
-            );
-
-    return '$day/$month/${date.year}';
-  }
-
-  // =========================================================
-  // EMPTY
-  // =========================================================
-
-  Widget _buildEmptyState() {
-    return Container(
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 24,
-        vertical: 30,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(
-          18,
-        ),
-        border: Border.all(
-          color:
-              Colors.grey.shade200,
-        ),
-      ),
-      child: Column(
-        children: [
-          Container(
-            width: 54,
-            height: 54,
-            decoration: BoxDecoration(
-              color: AppTheme.primary
-                  .withValues(
-                alpha: 0.08,
-              ),
-              shape:
-                  BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons
-                  .shopping_bag_outlined,
-              color:
-                  AppTheme.primary,
-            ),
-          ),
-
-          const SizedBox(
-            height: 14,
-          ),
-
-          const Text(
-            'Nenhuma compra encontrada',
-            textAlign:
-                TextAlign.center,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight:
-                  FontWeight.w700,
-            ),
-          ),
-
-          const SizedBox(
-            height: 6,
-          ),
-
-          Text(
-            'As movimentações disponibilizadas pela instituição aparecerão aqui.',
-            textAlign:
-                TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
-              height: 1.4,
-              color:
-                  Colors.grey.shade500,
-            ),
-          ),
-        ],
-      ),
-    );
+    return '${date.day.toString().padLeft(2, '0')} '
+        '${months[date.month - 1]} '
+        '${date.year}';
   }
 }

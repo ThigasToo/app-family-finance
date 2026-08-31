@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
+import '../widgets/finance_ui.dart';
+
 
 class AccountTransactionsScreen
     extends StatelessWidget {
@@ -21,13 +23,17 @@ class AccountTransactionsScreen
         account['marketingName'];
 
     if (marketingName != null &&
-        marketingName.toString().trim().isNotEmpty) {
+        marketingName
+            .toString()
+            .trim()
+            .isNotEmpty) {
       return marketingName
           .toString()
           .trim();
     }
 
-    final name = account['name'];
+    final name =
+        account['name'];
 
     if (name != null &&
         name.toString().trim().isNotEmpty) {
@@ -42,6 +48,7 @@ class AccountTransactionsScreen
       account['institution_name'],
       account['resolved_institution'],
       account['institution'],
+      account['institutionName'],
     ];
 
     for (final value in candidates) {
@@ -56,7 +63,10 @@ class AccountTransactionsScreen
 
   String get _accountNumber {
     final value =
-        account['number']?.toString().trim() ?? '';
+        account['number']
+                ?.toString()
+                .trim() ??
+            '';
 
     if (value.isEmpty) {
       return '';
@@ -88,20 +98,20 @@ class AccountTransactionsScreen
       return [];
     }
 
-    final result =
-        raw
-            .whereType<Map>()
-            .map(
-              (item) =>
-                  Map<String, dynamic>.from(
-                item,
-              ),
-            )
-            .toList();
+    final result = raw
+        .whereType<Map>()
+        .map(
+          (item) =>
+              Map<String, dynamic>.from(
+            item,
+          ),
+        )
+        .toList();
 
     result.sort(
       (a, b) =>
-          _transactionDate(b).compareTo(
+          _transactionDate(b)
+              .compareTo(
         _transactionDate(a),
       ),
     );
@@ -109,12 +119,12 @@ class AccountTransactionsScreen
     return result;
   }
 
-  Map<DateTime, List<Map<String, dynamic>>>
+  Map<DateTime,
+          List<Map<String, dynamic>>>
       get _groupedTransactions {
-    final Map<
-            DateTime,
-            List<Map<String, dynamic>>>
-        grouped = {};
+    final grouped =
+        <DateTime,
+            List<Map<String, dynamic>>>{};
 
     for (final transaction
         in _transactions) {
@@ -143,11 +153,12 @@ class AccountTransactionsScreen
   }
 
   // =========================================================
-  // VALORES DO MÊS
+  // RESUMO MÊS
   // =========================================================
 
   double get _monthIncome {
-    final now = DateTime.now();
+    final now =
+        DateTime.now();
 
     double total = 0;
 
@@ -177,7 +188,8 @@ class AccountTransactionsScreen
   }
 
   double get _monthExpense {
-    final now = DateTime.now();
+    final now =
+        DateTime.now();
 
     double total = 0;
 
@@ -209,6 +221,19 @@ class AccountTransactionsScreen
   // =========================================================
   // HELPERS
   // =========================================================
+
+  double _asDouble(
+    dynamic value,
+  ) {
+    if (value is num) {
+      return value.toDouble();
+    }
+
+    return double.tryParse(
+          value?.toString() ?? '',
+        ) ??
+        0;
+  }
 
   DateTime _transactionDate(
     Map<String, dynamic> transaction,
@@ -251,7 +276,8 @@ class AccountTransactionsScreen
       }
 
       if (candidate != null) {
-        final parsed = double.tryParse(
+        final parsed =
+            double.tryParse(
           candidate.toString(),
         );
 
@@ -268,17 +294,22 @@ class AccountTransactionsScreen
     Map<String, dynamic> transaction,
   ) {
     final candidates = [
+      transaction['merchant']?['name'],
       transaction['description'],
       transaction['descriptionRaw'],
-      transaction['merchant']?['name'],
       transaction['category'],
       transaction['type'],
     ];
 
     for (final candidate in candidates) {
       if (candidate != null &&
-          candidate.toString().trim().isNotEmpty) {
-        return candidate.toString().trim();
+          candidate
+              .toString()
+              .trim()
+              .isNotEmpty) {
+        return candidate
+            .toString()
+            .trim();
       }
     }
 
@@ -289,22 +320,31 @@ class AccountTransactionsScreen
     Map<String, dynamic> transaction,
   ) {
     final candidates = [
-      transaction['type'],
       transaction['category'],
-      transaction['paymentData']?['payer']?['name'],
-      transaction['paymentData']?['receiver']?['name'],
+      transaction['type'],
+      transaction['paymentData']
+          ?['payer']?['name'],
+      transaction['paymentData']
+          ?['receiver']?['name'],
     ];
+
+    final description =
+        _transactionDescription(
+      transaction,
+    );
 
     for (final candidate in candidates) {
       if (candidate != null &&
-          candidate.toString().trim().isNotEmpty) {
+          candidate
+              .toString()
+              .trim()
+              .isNotEmpty) {
         final value =
-            candidate.toString().trim();
+            candidate
+                .toString()
+                .trim();
 
-        if (value !=
-            _transactionDescription(
-              transaction,
-            )) {
+        if (value != description) {
           return value;
         }
       }
@@ -313,26 +353,48 @@ class AccountTransactionsScreen
     return null;
   }
 
-  bool _isIncome(
+  IconData _transactionIcon(
     Map<String, dynamic> transaction,
   ) {
-    return _transactionAmount(
-          transaction,
-        ) >
-        0;
-  }
+    final text =
+        '${transaction['category'] ?? ''} '
+                '${transaction['description'] ?? ''}'
+            .toUpperCase();
 
-  double _asDouble(
-    dynamic value,
-  ) {
-    if (value is num) {
-      return value.toDouble();
+    if (text.contains('PIX')) {
+      return Icons.pix_rounded;
     }
 
-    return double.tryParse(
-          value?.toString() ?? '',
-        ) ??
-        0;
+    if (text.contains('FOOD') ||
+        text.contains('RESTAUR') ||
+        text.contains('ALIMENT')) {
+      return Icons
+          .restaurant_rounded;
+    }
+
+    if (text.contains('TRANSPORT') ||
+        text.contains('UBER') ||
+        text.contains('99')) {
+      return Icons
+          .directions_car_rounded;
+    }
+
+    if (text.contains('SHOP') ||
+        text.contains('COMPRA')) {
+      return Icons
+          .shopping_bag_rounded;
+    }
+
+    if (_transactionAmount(
+          transaction,
+        ) >
+        0) {
+      return Icons
+          .south_west_rounded;
+    }
+
+    return Icons
+        .north_east_rounded;
   }
 
   // =========================================================
@@ -353,13 +415,11 @@ class AccountTransactionsScreen
                 b.compareTo(a),
           );
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Movimentações',
-        ),
-      ),
-      body: ListView(
+    return FinancePage(
+      title: 'Movimentações',
+      child: ListView(
+        physics:
+            const AlwaysScrollableScrollPhysics(),
         padding:
             const EdgeInsets.fromLTRB(
           20,
@@ -368,30 +428,107 @@ class AccountTransactionsScreen
           36,
         ),
         children: [
-          _buildAccountHeader(),
+          FinanceHeroCard(
+            label:
+                'Saldo atual',
+            value:
+                _accountBalance,
+            details: [
+              FinanceHeroInfo(
+                icon:
+                    Icons
+                        .account_balance_rounded,
+                text:
+                    _institutionName,
+              ),
 
-          const SizedBox(
-            height: 20,
+              FinanceHeroInfo(
+                icon:
+                    Icons
+                        .account_balance_wallet_rounded,
+                text:
+                    _accountName,
+              ),
+
+              if (_accountNumber
+                  .isNotEmpty)
+                FinanceHeroInfo(
+                  icon:
+                      Icons
+                          .tag_rounded,
+                  text:
+                      _accountNumber,
+                ),
+            ],
           ),
 
-          _buildMonthSummary(),
+          const SizedBox(
+            height: 16,
+          ),
+
+          Row(
+            children: [
+              Expanded(
+                child:
+                    _summaryCard(
+                  icon:
+                      Icons
+                          .south_west_rounded,
+                  label:
+                      'Entradas',
+                  value:
+                      _monthIncome,
+                ),
+              ),
+
+              const SizedBox(
+                width: 12,
+              ),
+
+              Expanded(
+                child:
+                    _summaryCard(
+                  icon:
+                      Icons
+                          .north_east_rounded,
+                  label:
+                      'Saídas',
+                  value:
+                      _monthExpense,
+                ),
+              ),
+            ],
+          ),
 
           const SizedBox(
             height: 30,
           ),
 
-          _buildSectionHeader(),
+          FinanceSectionHeader(
+            title:
+                'Movimentações',
+            trailing:
+                '${_transactions.length}',
+          ),
 
           const SizedBox(
-            height: 12,
+            height: 14,
           ),
 
           if (_transactions.isEmpty)
-            _buildEmptyState()
+            const FinanceEmptyState(
+              icon:
+                  Icons
+                      .receipt_long_outlined,
+              title:
+                  'Nenhuma movimentação',
+              subtitle:
+                  'Não encontramos movimentações para esta conta.',
+            )
           else
             ...dates.map(
               (date) =>
-                  _buildDayGroup(
+                  _dayGroup(
                 date,
                 grouped[date]!,
               ),
@@ -401,251 +538,65 @@ class AccountTransactionsScreen
     );
   }
 
-  // =========================================================
-  // HEADER
-  // =========================================================
-
-  Widget _buildAccountHeader() {
-    return Container(
-      width: double.infinity,
-      padding:
-          const EdgeInsets.all(
-        20,
-      ),
-      decoration: BoxDecoration(
-        color: AppTheme.primary,
-        borderRadius:
-            BorderRadius.circular(
-          22,
+  Widget _summaryCard({
+    required IconData icon,
+    required String label,
+    required double value,
+  }) {
+    return FinanceGlassCard(
+      radius: 20,
+      child: Padding(
+        padding:
+            const EdgeInsets.all(
+          15,
         ),
-      ),
-      child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-        children: [
-          Text(
-            _institutionName,
-            style: TextStyle(
-              color: Colors.white
-                  .withValues(
-                alpha: 0.72,
+        child: Column(
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+          children: [
+            FinanceIconBubble(
+              icon: icon,
+            ),
+
+            const SizedBox(
+              height: 12,
+            ),
+
+            Text(
+              label,
+              style:
+                  const TextStyle(
+                color:
+                    AppTheme.inkSoft,
+                fontSize: 11,
               ),
-              fontSize: 13,
             ),
-          ),
 
-          const SizedBox(
-            height: 5,
-          ),
-
-          Text(
-            _accountName,
-            maxLines: 2,
-            overflow:
-                TextOverflow.ellipsis,
-            style:
-                const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight:
-                  FontWeight.w800,
-            ),
-          ),
-
-          if (_accountNumber
-              .isNotEmpty) ...[
             const SizedBox(
               height: 5,
             ),
 
             Text(
-              _accountNumber,
-              style: TextStyle(
-                color: Colors.white
-                    .withValues(
-                  alpha: 0.55,
-                ),
-                fontSize: 12,
+              formatCurrency(value),
+              maxLines: 1,
+              overflow:
+                  TextOverflow.ellipsis,
+              style:
+                  const TextStyle(
+                color:
+                    AppTheme.ink,
+                fontSize: 15,
+                fontWeight:
+                    FontWeight.w800,
               ),
             ),
           ],
-
-          const SizedBox(
-            height: 22,
-          ),
-
-          Text(
-            'Saldo atual',
-            style: TextStyle(
-              color: Colors.white
-                  .withValues(
-                alpha: 0.62,
-              ),
-              fontSize: 11,
-            ),
-          ),
-
-          const SizedBox(
-            height: 4,
-          ),
-
-          Text(
-            formatCurrency(
-              _accountBalance,
-            ),
-            style:
-                const TextStyle(
-              color: Colors.white,
-              fontSize: 27,
-              fontWeight:
-                  FontWeight.w800,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  // =========================================================
-  // RESUMO DO MÊS
-  // =========================================================
-
-  Widget _buildMonthSummary() {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildSummaryItem(
-            icon:
-                Icons.arrow_downward_rounded,
-            label: 'Entradas',
-            value:
-                formatCurrency(
-              _monthIncome,
-            ),
-          ),
-        ),
-
-        const SizedBox(
-          width: 12,
-        ),
-
-        Expanded(
-          child: _buildSummaryItem(
-            icon:
-                Icons.arrow_upward_rounded,
-            label: 'Saídas',
-            value:
-                formatCurrency(
-              _monthExpense,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSummaryItem({
-    required IconData icon,
-    required String label,
-    required String value,
-  }) {
-    return Container(
-      padding:
-          const EdgeInsets.all(
-        16,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(
-          18,
-        ),
-        border: Border.all(
-          color:
-              Colors.grey.shade200,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-        children: [
-          Icon(
-            icon,
-            size: 18,
-            color:
-                AppTheme.primary,
-          ),
-
-          const SizedBox(
-            height: 10,
-          ),
-
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              color:
-                  Colors.grey.shade500,
-            ),
-          ),
-
-          const SizedBox(
-            height: 4,
-          ),
-
-          Text(
-            value,
-            maxLines: 1,
-            overflow:
-                TextOverflow.ellipsis,
-            style:
-                const TextStyle(
-              fontSize: 14,
-              fontWeight:
-                  FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // =========================================================
-  // TÍTULO
-  // =========================================================
-
-  Widget _buildSectionHeader() {
-    return Row(
-      children: [
-        const Expanded(
-          child: Text(
-            'Movimentações',
-            style:
-                TextStyle(
-              fontSize: 17,
-              fontWeight:
-                  FontWeight.w800,
-            ),
-          ),
-        ),
-
-        Text(
-          '${_transactions.length}',
-          style: TextStyle(
-            fontSize: 13,
-            color:
-                Colors.grey.shade500,
-          ),
-        ),
-      ],
-    );
-  }
-
-  // =========================================================
-  // AGRUPAMENTO POR DIA
-  // =========================================================
-
-  Widget _buildDayGroup(
+  Widget _dayGroup(
     DateTime date,
     List<Map<String, dynamic>>
         transactions,
@@ -659,35 +610,27 @@ class AccountTransactionsScreen
         crossAxisAlignment:
             CrossAxisAlignment.start,
         children: [
-          Text(
-            _formatGroupDate(
-              date,
+          Padding(
+            padding:
+                const EdgeInsets.only(
+              left: 3,
+              bottom: 8,
             ),
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight:
-                  FontWeight.w700,
-              color:
-                  Colors.grey.shade600,
-            ),
-          ),
-
-          const SizedBox(
-            height: 8,
-          ),
-
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius:
-                  BorderRadius.circular(
-                18,
-              ),
-              border: Border.all(
+            child: Text(
+              _formatDate(date),
+              style:
+                  const TextStyle(
                 color:
-                    Colors.grey.shade200,
+                    AppTheme.inkSoft,
+                fontSize: 11,
+                fontWeight:
+                    FontWeight.w700,
               ),
             ),
+          ),
+
+          FinanceGlassCard(
+            radius: 20,
             child: Column(
               children:
                   transactions
@@ -695,17 +638,12 @@ class AccountTransactionsScreen
                       .entries
                       .map(
                 (entry) {
-                  final index =
-                      entry.key;
-
-                  final transaction =
-                      entry.value;
-
-                  return _buildTransactionRow(
-                    transaction,
+                  return _transactionRow(
+                    entry.value,
                     showDivider:
-                        index !=
-                            transactions.length -
+                        entry.key !=
+                            transactions
+                                    .length -
                                 1,
                   );
                 },
@@ -717,7 +655,7 @@ class AccountTransactionsScreen
     );
   }
 
-  Widget _buildTransactionRow(
+  Widget _transactionRow(
     Map<String, dynamic> transaction, {
     required bool showDivider,
   }) {
@@ -727,9 +665,7 @@ class AccountTransactionsScreen
     );
 
     final income =
-        _isIncome(
-      transaction,
-    );
+        amount > 0;
 
     final subtitle =
         _transactionSubtitle(
@@ -739,48 +675,37 @@ class AccountTransactionsScreen
     return Container(
       padding:
           const EdgeInsets.symmetric(
-        horizontal: 16,
+        horizontal: 15,
         vertical: 14,
       ),
-      decoration: BoxDecoration(
-        border: showDivider
-            ? Border(
-                bottom: BorderSide(
-                  color: Colors
-                      .grey.shade100,
-                ),
-              )
-            : null,
+      decoration:
+          BoxDecoration(
+        border:
+            showDivider
+                ? Border(
+                    bottom:
+                        BorderSide(
+                      color:
+                          AppTheme.line
+                              .withValues(
+                        alpha:
+                            0.65,
+                      ),
+                    ),
+                  )
+                : null,
       ),
       child: Row(
         children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: AppTheme.primary
-                  .withValues(
-                alpha: 0.07,
-              ),
-              borderRadius:
-                  BorderRadius.circular(
-                13,
-              ),
-            ),
-            child: Icon(
-              income
-                  ? Icons
-                      .south_west_rounded
-                  : Icons
-                      .north_east_rounded,
-              size: 19,
-              color:
-                  AppTheme.primary,
+          FinanceIconBubble(
+            icon:
+                _transactionIcon(
+              transaction,
             ),
           ),
 
           const SizedBox(
-            width: 12,
+            width: 13,
           ),
 
           Expanded(
@@ -794,10 +719,13 @@ class AccountTransactionsScreen
                   ),
                   maxLines: 2,
                   overflow:
-                      TextOverflow.ellipsis,
+                      TextOverflow
+                          .ellipsis,
                   style:
                       const TextStyle(
-                    fontSize: 13,
+                    color:
+                        AppTheme.ink,
+                    fontSize: 13.5,
                     fontWeight:
                         FontWeight.w700,
                   ),
@@ -808,16 +736,18 @@ class AccountTransactionsScreen
                   const SizedBox(
                     height: 4,
                   ),
-
                   Text(
                     subtitle,
                     maxLines: 1,
                     overflow:
-                        TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors
-                          .grey.shade500,
+                        TextOverflow
+                            .ellipsis,
+                    style:
+                        const TextStyle(
+                      color:
+                          AppTheme
+                              .inkSoft,
+                      fontSize: 10.5,
                     ),
                   ),
                 ],
@@ -826,19 +756,21 @@ class AccountTransactionsScreen
           ),
 
           const SizedBox(
-            width: 12,
+            width: 10,
           ),
 
           Text(
             '${income ? '+' : '-'}'
             '${formatCurrency(amount.abs())}',
             style: TextStyle(
-              fontSize: 13,
+              color:
+                  income
+                      ? AppTheme
+                          .success
+                      : AppTheme.ink,
+              fontSize: 13.5,
               fontWeight:
                   FontWeight.w800,
-              color: income
-                  ? AppTheme.primary
-                  : Colors.black87,
             ),
           ),
         ],
@@ -846,11 +778,7 @@ class AccountTransactionsScreen
     );
   }
 
-  // =========================================================
-  // DATAS
-  // =========================================================
-
-  String _formatGroupDate(
+  String _formatDate(
     DateTime date,
   ) {
     final now =
@@ -863,123 +791,43 @@ class AccountTransactionsScreen
       now.day,
     );
 
-    final target =
+    final value =
         DateTime(
       date.year,
       date.month,
       date.day,
     );
 
-    final difference =
-        today
-            .difference(
-          target,
-        )
-            .inDays;
-
-    if (difference == 0) {
-      return 'Hoje';
+    if (value == today) {
+      return 'HOJE';
     }
 
-    if (difference == 1) {
-      return 'Ontem';
+    if (value ==
+        today.subtract(
+          const Duration(
+            days: 1,
+          ),
+        )) {
+      return 'ONTEM';
     }
 
-    final day =
-        date.day
-            .toString()
-            .padLeft(
-              2,
-              '0',
-            );
+    const months = [
+      'JAN',
+      'FEV',
+      'MAR',
+      'ABR',
+      'MAI',
+      'JUN',
+      'JUL',
+      'AGO',
+      'SET',
+      'OUT',
+      'NOV',
+      'DEZ',
+    ];
 
-    final month =
-        date.month
-            .toString()
-            .padLeft(
-              2,
-              '0',
-            );
-
-    return '$day/$month/${date.year}';
-  }
-
-  // =========================================================
-  // EMPTY
-  // =========================================================
-
-  Widget _buildEmptyState() {
-    return Container(
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 24,
-        vertical: 30,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(
-          18,
-        ),
-        border: Border.all(
-          color:
-              Colors.grey.shade200,
-        ),
-      ),
-      child: Column(
-        children: [
-          Container(
-            width: 54,
-            height: 54,
-            decoration: BoxDecoration(
-              color: AppTheme.primary
-                  .withValues(
-                alpha: 0.08,
-              ),
-              shape:
-                  BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons
-                  .receipt_long_outlined,
-              color:
-                  AppTheme.primary,
-            ),
-          ),
-
-          const SizedBox(
-            height: 14,
-          ),
-
-          const Text(
-            'Nenhuma movimentação encontrada',
-            textAlign:
-                TextAlign.center,
-            style:
-                TextStyle(
-              fontSize: 15,
-              fontWeight:
-                  FontWeight.w700,
-            ),
-          ),
-
-          const SizedBox(
-            height: 6,
-          ),
-
-          Text(
-            'Quando a instituição disponibilizar transações para esta conta, elas aparecerão aqui.',
-            textAlign:
-                TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
-              height: 1.4,
-              color:
-                  Colors.grey.shade500,
-            ),
-          ),
-        ],
-      ),
-    );
+    return '${date.day.toString().padLeft(2, '0')} '
+        '${months[date.month - 1]} '
+        '${date.year}';
   }
 }

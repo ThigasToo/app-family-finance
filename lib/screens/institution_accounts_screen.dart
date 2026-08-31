@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
+import '../widgets/finance_ui.dart';
 
 import 'account_transactions_screen.dart';
+
 
 class InstitutionAccountsScreen
     extends StatelessWidget {
@@ -17,7 +19,7 @@ class InstitutionAccountsScreen
   });
 
   // =========================================================
-  // TOTAL
+  // TOTAIS
   // =========================================================
 
   double get _totalBalance {
@@ -87,8 +89,7 @@ class InstitutionAccountsScreen
   String _cleanAccountName(
     String name,
   ) {
-    var cleaned =
-        name.trim();
+    var cleaned = name.trim();
 
     if (institutionName
             .toUpperCase() ==
@@ -122,17 +123,14 @@ class InstitutionAccountsScreen
 
     if (cleaned.startsWith('(') &&
         cleaned.endsWith(')')) {
-      cleaned =
-          cleaned.substring(
+      cleaned = cleaned.substring(
         1,
         cleaned.length - 1,
       );
     }
 
     if (cleaned.isEmpty) {
-      return _friendlySubtype(
-        '',
-      );
+      return 'Conta bancária';
     }
 
     return cleaned;
@@ -151,8 +149,7 @@ class InstitutionAccountsScreen
   String _friendlySubtype(
     String subtype,
   ) {
-    switch (
-        subtype.toUpperCase()) {
+    switch (subtype.toUpperCase()) {
       case 'CHECKING_ACCOUNT':
         return 'Conta corrente';
 
@@ -218,7 +215,8 @@ class InstitutionAccountsScreen
     return null;
   }
 
-  double? _getAutomaticallyInvestedBalance(
+  double?
+      _getAutomaticallyInvestedBalance(
     dynamic account,
   ) {
     final bankData =
@@ -237,6 +235,30 @@ class InstitutionAccountsScreen
     }
 
     return null;
+  }
+
+  IconData _accountIcon(
+    dynamic account,
+  ) {
+    final subtype =
+        account['subtype']
+            ?.toString()
+            .toUpperCase();
+
+    switch (subtype) {
+      case 'SAVINGS_ACCOUNT':
+        return Icons.savings_rounded;
+
+      case 'INVESTMENT_ACCOUNT':
+        return Icons.trending_up_rounded;
+
+      case 'PREPAID_ACCOUNT':
+        return Icons.wallet_rounded;
+
+      default:
+        return Icons
+            .account_balance_wallet_rounded;
+    }
   }
 
   // =========================================================
@@ -279,35 +301,60 @@ class InstitutionAccountsScreen
       ),
     );
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          institutionName,
-        ),
-      ),
-      body: ListView(
+    return FinancePage(
+      title: institutionName,
+      child: ListView(
+        physics:
+            const AlwaysScrollableScrollPhysics(),
         padding:
             const EdgeInsets.fromLTRB(
           20,
           8,
           20,
-          32,
+          36,
         ),
         children: [
-          _buildSummaryCard(),
+          FinanceHeroCard(
+            label:
+                'Saldo em $institutionName',
+            value:
+                _totalBalance,
+            details: [
+              FinanceHeroInfo(
+                icon:
+                    Icons
+                        .account_balance_wallet_rounded,
+                text:
+                    '${accounts.length} '
+                    '${accounts.length == 1 ? 'conta' : 'contas'}',
+              ),
+            ],
+          ),
 
           const SizedBox(
             height: 30,
           ),
 
-          _buildSectionHeader(),
+          FinanceSectionHeader(
+            title: 'Suas contas',
+            trailing:
+                '${accounts.length}',
+          ),
 
           const SizedBox(
             height: 12,
           ),
 
           if (sortedAccounts.isEmpty)
-            _buildEmptyState()
+            const FinanceEmptyState(
+              icon:
+                  Icons
+                      .account_balance_wallet_outlined,
+              title:
+                  'Nenhuma conta encontrada',
+              subtitle:
+                  'Não há contas disponíveis nesta instituição.',
+            )
           else
             ...sortedAccounts.map(
               (account) =>
@@ -318,103 +365,6 @@ class InstitutionAccountsScreen
             ),
         ],
       ),
-    );
-  }
-
-  // =========================================================
-  // RESUMO
-  // =========================================================
-
-  Widget _buildSummaryCard() {
-    return Container(
-      width: double.infinity,
-      padding:
-          const EdgeInsets.all(
-        24,
-      ),
-      decoration: BoxDecoration(
-        color:
-            AppTheme.primary,
-        borderRadius:
-            BorderRadius.circular(
-          24,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Saldo em $institutionName',
-            style: TextStyle(
-              color: Colors.white
-                  .withValues(
-                alpha: 0.76,
-              ),
-              fontSize: 14,
-            ),
-          ),
-
-          const SizedBox(
-            height: 8,
-          ),
-
-          Text(
-            formatCurrency(
-              _totalBalance,
-            ),
-            style:
-                const TextStyle(
-              color: Colors.white,
-              fontSize: 31,
-              fontWeight:
-                  FontWeight.w800,
-            ),
-          ),
-
-          const SizedBox(
-            height: 20,
-          ),
-
-          Text(
-            '${accounts.length} '
-            '${accounts.length == 1 ? 'conta' : 'contas'}',
-            style: TextStyle(
-              color: Colors.white
-                  .withValues(
-                alpha: 0.7,
-              ),
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader() {
-    return Row(
-      children: [
-        const Expanded(
-          child: Text(
-            'Suas contas',
-            style:
-                TextStyle(
-              fontSize: 17,
-              fontWeight:
-                  FontWeight.w800,
-            ),
-          ),
-        ),
-
-        Text(
-          '${accounts.length}',
-          style: TextStyle(
-            color:
-                Colors.grey.shade500,
-          ),
-        ),
-      ],
     );
   }
 
@@ -451,208 +401,220 @@ class InstitutionAccountsScreen
           const EdgeInsets.only(
         bottom: 12,
       ),
-      child: Material(
-        color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(
-          20,
-        ),
-        child: InkWell(
-          borderRadius:
-              BorderRadius.circular(
-            20,
+      child: FinanceGlassCard(
+        radius: 23,
+        onTap: () {
+          _openAccount(
+            context,
+            account,
+          );
+        },
+        child: Padding(
+          padding:
+              const EdgeInsets.all(
+            17,
           ),
-          onTap: () {
-            _openAccount(
-              context,
-              account,
-            );
-          },
-          child: Container(
-            padding:
-                const EdgeInsets.all(
-              18,
-            ),
-            decoration: BoxDecoration(
-              borderRadius:
-                  BorderRadius.circular(
-                20,
-              ),
-              border: Border.all(
-                color:
-                    Colors.grey.shade200,
-              ),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    _buildAccountIcon(
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  FinanceIconBubble(
+                    icon:
+                        _accountIcon(
                       account,
                     ),
+                  ),
 
-                    const SizedBox(
-                      width: 14,
-                    ),
+                  const SizedBox(
+                    width: 14,
+                  ),
 
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _getAccountName(
-                              account,
-                            ),
-                            maxLines: 2,
-                            overflow:
-                                TextOverflow.ellipsis,
-                            style:
-                                const TextStyle(
-                              fontSize: 15,
-                              fontWeight:
-                                  FontWeight.w700,
-                            ),
-                          ),
-
-                          const SizedBox(
-                            height: 5,
-                          ),
-
-                          Text(
-                            _getAccountType(
-                              account,
-                            ),
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors
-                                  .grey.shade500,
-                            ),
-                          ),
-
-                          if (accountNumber
-                              .isNotEmpty) ...[
-                            const SizedBox(
-                              height: 3,
-                            ),
-
-                            Text(
-                              accountNumber,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors
-                                    .grey.shade400,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-
-                    Column(
+                  Expanded(
+                    child: Column(
                       crossAxisAlignment:
-                          CrossAxisAlignment.end,
+                          CrossAxisAlignment
+                              .start,
                       children: [
                         Text(
-                          formatCurrency(
-                            balance,
+                          _getAccountName(
+                            account,
                           ),
+                          maxLines: 2,
+                          overflow:
+                              TextOverflow
+                                  .ellipsis,
                           style:
                               const TextStyle(
-                            fontSize: 16,
+                            color:
+                                AppTheme.ink,
+                            fontSize: 14.5,
+                            height: 1.25,
                             fontWeight:
-                                FontWeight.w800,
+                                FontWeight
+                                    .w700,
                           ),
                         ),
 
                         const SizedBox(
-                          height: 4,
+                          height: 5,
                         ),
 
                         Text(
-                          'Saldo',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors
-                                .grey.shade500,
+                          _getAccountType(
+                            account,
+                          ),
+                          style:
+                              const TextStyle(
+                            color:
+                                AppTheme
+                                    .inkSoft,
+                            fontSize: 11.5,
                           ),
                         ),
+
+                        if (accountNumber
+                            .isNotEmpty) ...[
+                          const SizedBox(
+                            height: 3,
+                          ),
+                          Text(
+                            accountNumber,
+                            style: TextStyle(
+                              color:
+                                  AppTheme
+                                      .inkSoft
+                                      .withValues(
+                                alpha:
+                                    0.65,
+                              ),
+                              fontSize:
+                                  10.5,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
-
-                    const SizedBox(
-                      width: 4,
-                    ),
-
-                    Icon(
-                      Icons
-                          .chevron_right_rounded,
-                      color: Colors
-                          .grey.shade400,
-                      size: 25,
-                    ),
-                  ],
-                ),
-
-                if ((closingBalance != null &&
-                        closingBalance !=
-                            balance) ||
-                    (investedBalance != null &&
-                        investedBalance >
-                            0)) ...[
-                  const SizedBox(
-                    height: 16,
                   ),
 
-                  Container(
-                    padding:
-                        const EdgeInsets.all(
-                      12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primary
-                          .withValues(
-                        alpha: 0.05,
-                      ),
-                      borderRadius:
-                          BorderRadius.circular(
-                        12,
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        if (closingBalance != null &&
-                            closingBalance !=
-                                balance)
-                          _buildMiniInfo(
-                            'Saldo de fechamento',
-                            formatCurrency(
-                              closingBalance,
-                            ),
-                          ),
+                  const SizedBox(
+                    width: 10,
+                  ),
 
-                        if (investedBalance != null &&
-                            investedBalance >
-                                0)
-                          _buildMiniInfo(
-                            'Aplicação automática',
-                            formatCurrency(
-                              investedBalance,
-                            ),
-                          ),
-                      ],
-                    ),
+                  Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        formatCurrency(
+                          balance,
+                        ),
+                        style:
+                            const TextStyle(
+                          color:
+                              AppTheme.ink,
+                          fontSize: 15.5,
+                          fontWeight:
+                              FontWeight
+                                  .w800,
+                        ),
+                      ),
+                      const SizedBox(
+                        height: 4,
+                      ),
+                      const Text(
+                        'Saldo',
+                        style:
+                            TextStyle(
+                          color:
+                              AppTheme
+                                  .inkSoft,
+                          fontSize: 10.5,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(
+                    width: 6,
+                  ),
+
+                  const Icon(
+                    Icons
+                        .chevron_right_rounded,
+                    color:
+                        AppTheme.inkSoft,
+                    size: 24,
                   ),
                 ],
+              ),
+
+              if ((closingBalance !=
+                          null &&
+                      closingBalance !=
+                          balance) ||
+                  (investedBalance !=
+                          null &&
+                      investedBalance >
+                          0)) ...[
+                const SizedBox(
+                  height: 15,
+                ),
+
+                Container(
+                  padding:
+                      const EdgeInsets
+                          .symmetric(
+                    horizontal: 13,
+                    vertical: 10,
+                  ),
+                  decoration:
+                      BoxDecoration(
+                    color:
+                        AppTheme.primary
+                            .withValues(
+                      alpha: 0.05,
+                    ),
+                    borderRadius:
+                        BorderRadius
+                            .circular(
+                      14,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      if (closingBalance !=
+                              null &&
+                          closingBalance !=
+                              balance)
+                        _miniInfo(
+                          'Saldo de fechamento',
+                          formatCurrency(
+                            closingBalance,
+                          ),
+                        ),
+
+                      if (investedBalance !=
+                              null &&
+                          investedBalance >
+                              0)
+                        _miniInfo(
+                          'Aplicação automática',
+                          formatCurrency(
+                            investedBalance,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               ],
-            ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildMiniInfo(
+  Widget _miniInfo(
     String label,
     String value,
   ) {
@@ -666,73 +628,26 @@ class InstitutionAccountsScreen
           Expanded(
             child: Text(
               label,
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors
-                    .grey.shade500,
+              style:
+                  const TextStyle(
+                color:
+                    AppTheme.inkSoft,
+                fontSize: 10.5,
               ),
             ),
           ),
-
           Text(
             value,
             style:
                 const TextStyle(
-              fontSize: 11,
+              color:
+                  AppTheme.ink,
+              fontSize: 10.5,
               fontWeight:
                   FontWeight.w600,
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildAccountIcon(
-    dynamic account,
-  ) {
-    return Container(
-      width: 48,
-      height: 48,
-      decoration: BoxDecoration(
-        color: AppTheme.primary
-            .withValues(
-          alpha: 0.09,
-        ),
-        borderRadius:
-            BorderRadius.circular(
-          15,
-        ),
-      ),
-      child: const Icon(
-        Icons
-            .account_balance_wallet_outlined,
-        color:
-            AppTheme.primary,
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Container(
-      padding:
-          const EdgeInsets.all(
-        24,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(
-          18,
-        ),
-        border: Border.all(
-          color:
-              Colors.grey.shade200,
-        ),
-      ),
-      child:
-          const Text(
-        'Nenhuma conta encontrada nesta instituição.',
       ),
     );
   }

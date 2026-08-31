@@ -2,20 +2,26 @@ import 'package:flutter/material.dart';
 
 import '../services/finance_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/finance_ui.dart';
 
-class AddInvestmentScreen extends StatefulWidget {
+
+class AddInvestmentScreen
+    extends StatefulWidget {
   const AddInvestmentScreen({
     super.key,
   });
 
   @override
-  State<AddInvestmentScreen> createState() =>
-      _AddInvestmentScreenState();
+  State<AddInvestmentScreen>
+      createState() =>
+          _AddInvestmentScreenState();
 }
+
 
 class _AddInvestmentScreenState
     extends State<AddInvestmentScreen> {
-  final _financeService = FinanceService();
+  final _financeService =
+      FinanceService();
 
   final _formKey =
       GlobalKey<FormState>();
@@ -32,15 +38,13 @@ class _AddInvestmentScreenState
   final _tickerController =
       TextEditingController();
 
-  String _selectedType = 'CRYPTO';
+  String _selectedType =
+      'CRYPTO';
 
-  bool _isSaving = false;
+  bool _isSaving =
+      false;
 
   String? _errorMessage;
-
-  // =========================================================
-  // TIPOS
-  // =========================================================
 
   final List<InvestmentTypeOption>
       _investmentTypes = [
@@ -54,7 +58,7 @@ class _AddInvestmentScreenState
       value: 'ETF',
       label: 'ETF',
       icon:
-          Icons.pie_chart_outline_rounded,
+          Icons.pie_chart_rounded,
     ),
     InvestmentTypeOption(
       value: 'STOCK',
@@ -66,13 +70,13 @@ class _AddInvestmentScreenState
       value: 'FIXED_INCOME',
       label: 'Renda fixa',
       icon:
-          Icons.savings_outlined,
+          Icons.savings_rounded,
     ),
     InvestmentTypeOption(
       value: 'FUND',
       label: 'Fundo',
       icon:
-          Icons.account_balance_outlined,
+          Icons.account_balance_rounded,
     ),
     InvestmentTypeOption(
       value: 'OTHER',
@@ -96,11 +100,15 @@ class _AddInvestmentScreenState
   // SALVAR
   // =========================================================
 
-  Future<void> _saveInvestment() async {
+  Future<void>
+      _saveInvestment() async {
     if (!_formKey.currentState!
         .validate()) {
       return;
     }
+
+    FocusScope.of(context)
+        .unfocus();
 
     setState(() {
       _isSaving = true;
@@ -108,7 +116,8 @@ class _AddInvestmentScreenState
     });
 
     try {
-      final value = _parseMoney(
+      final value =
+          _parseMoney(
         _valueController.text,
       );
 
@@ -124,19 +133,24 @@ class _AddInvestmentScreenState
       await _financeService
           .createManualInvestment(
         name:
-            _nameController.text.trim(),
-        type: _selectedType,
+            _nameController.text
+                .trim(),
+        type:
+            _selectedType,
         institution:
             _institutionController.text
                 .trim(),
-        currentValue: value,
-        ticker: ticker,
+        currentValue:
+            value,
+        ticker:
+            ticker,
       );
 
       if (!mounted) return;
 
-      Navigator.of(context).pop(true);
-    } catch (e) {
+      Navigator.of(context)
+          .pop(true);
+    } catch (_) {
       if (!mounted) return;
 
       setState(() {
@@ -146,27 +160,42 @@ class _AddInvestmentScreenState
     } finally {
       if (mounted) {
         setState(() {
-          _isSaving = false;
+          _isSaving =
+              false;
         });
       }
     }
   }
 
   // =========================================================
-  // DINHEIRO
+  // PARSER
   // =========================================================
 
   double _parseMoney(
     String value,
   ) {
-    var normalized = value
-        .replaceAll('R\$', '')
-        .replaceAll(' ', '');
+    var normalized =
+        value
+            .replaceAll(
+              'R\$',
+              '',
+            )
+            .replaceAll(
+              ' ',
+              '',
+            );
 
     if (normalized.contains(',')) {
-      normalized = normalized
-          .replaceAll('.', '')
-          .replaceAll(',', '.');
+      normalized =
+          normalized
+              .replaceAll(
+                '.',
+                '',
+              )
+              .replaceAll(
+                ',',
+                '.',
+              );
     }
 
     return double.tryParse(
@@ -183,146 +212,197 @@ class _AddInvestmentScreenState
   Widget build(
     BuildContext context,
   ) {
-    return Scaffold(
-      appBar: AppBar(
-        title:
-            const Text(
-          'Novo investimento',
-        ),
-      ),
-      body: SafeArea(
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            padding:
-                const EdgeInsets.fromLTRB(
-              20,
-              12,
-              20,
-              32,
-            ),
-            children: [
-              _buildIntro(),
-
-              const SizedBox(
-                height: 28,
-              ),
-
-              _buildSectionTitle(
-                'Tipo de investimento',
-              ),
-
-              const SizedBox(
-                height: 12,
-              ),
-
-              _buildInvestmentTypes(),
-
-              const SizedBox(
-                height: 30,
-              ),
-
-              _buildSectionTitle(
-                'Informações',
-              ),
-
-              const SizedBox(
-                height: 12,
-              ),
-
-              _buildNameField(),
-
-              const SizedBox(
-                height: 14,
-              ),
-
-              _buildInstitutionField(),
-
-              const SizedBox(
-                height: 14,
-              ),
-
-              _buildTickerField(),
-
-              const SizedBox(
-                height: 30,
-              ),
-
-              _buildSectionTitle(
-                'Valor atual',
-              ),
-
-              const SizedBox(
-                height: 12,
-              ),
-
-              _buildValueField(),
-
-              const SizedBox(
-                height: 10,
-              ),
-
-              _buildValueExplanation(),
-
-              if (_errorMessage !=
-                  null) ...[
-                const SizedBox(
-                  height: 20,
-                ),
-                _buildError(),
-              ],
-
-              const SizedBox(
-                height: 32,
-              ),
-
-              _buildSaveButton(),
-            ],
+    return FinancePage(
+      title: 'Novo investimento',
+      child: Form(
+        key: _formKey,
+        child: ListView(
+          physics:
+              const AlwaysScrollableScrollPhysics(),
+          keyboardDismissBehavior:
+              ScrollViewKeyboardDismissBehavior
+                  .onDrag,
+          padding:
+              const EdgeInsets.fromLTRB(
+            20,
+            8,
+            20,
+            36,
           ),
+          children: [
+            _buildIntro(),
+
+            const SizedBox(
+              height: 28,
+            ),
+
+            const FinanceSectionHeader(
+              title:
+                  'Tipo de investimento',
+            ),
+
+            const SizedBox(
+              height: 12,
+            ),
+
+            _buildInvestmentTypes(),
+
+            const SizedBox(
+              height: 28,
+            ),
+
+            const FinanceSectionHeader(
+              title: 'Informações',
+            ),
+
+            const SizedBox(
+              height: 12,
+            ),
+
+            FinanceGlassCard(
+              radius: 23,
+              child: Padding(
+                padding:
+                    const EdgeInsets.all(
+                  16,
+                ),
+                child: Column(
+                  children: [
+                    _buildNameField(),
+
+                    const SizedBox(
+                      height: 13,
+                    ),
+
+                    _buildInstitutionField(),
+
+                    const SizedBox(
+                      height: 13,
+                    ),
+
+                    _buildTickerField(),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(
+              height: 28,
+            ),
+
+            const FinanceSectionHeader(
+              title: 'Valor atual',
+            ),
+
+            const SizedBox(
+              height: 12,
+            ),
+
+            FinanceGlassCard(
+              radius: 23,
+              child: Padding(
+                padding:
+                    const EdgeInsets.all(
+                  16,
+                ),
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment
+                          .start,
+                  children: [
+                    _buildValueField(),
+
+                    const SizedBox(
+                      height: 12,
+                    ),
+
+                    const Text(
+                      'Esse valor será utilizado no total da sua carteira. Você poderá atualizá-lo manualmente sempre que quiser.',
+                      style:
+                          TextStyle(
+                        color:
+                            AppTheme
+                                .inkSoft,
+                        fontSize: 11.5,
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            if (_errorMessage !=
+                null) ...[
+              const SizedBox(
+                height: 18,
+              ),
+              _buildError(),
+            ],
+
+            const SizedBox(
+              height: 28,
+            ),
+
+            _buildSaveButton(),
+          ],
         ),
       ),
     );
   }
 
   // =========================================================
-  // INTRODUÇÃO
+  // INTRO
   // =========================================================
 
   Widget _buildIntro() {
     return Container(
+      width: double.infinity,
       padding:
-          const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppTheme.primary
-            .withValues(
-          alpha: 0.07,
-        ),
+          const EdgeInsets.all(
+        20,
+      ),
+      decoration:
+          BoxDecoration(
+        gradient:
+            AppTheme.premiumGradient,
         borderRadius:
-            BorderRadius.circular(18),
+            BorderRadius.circular(
+          26,
+        ),
+        border: Border.all(
+          color:
+              Colors.white.withValues(
+            alpha: 0.15,
+          ),
+        ),
+        boxShadow:
+            AppTheme.floatingShadow,
       ),
       child: Row(
         crossAxisAlignment:
             CrossAxisAlignment.start,
         children: [
           Container(
-            width: 42,
-            height: 42,
+            width: 48,
+            height: 48,
             decoration:
                 BoxDecoration(
-              color: AppTheme.primary
-                  .withValues(
-                alpha: 0.12,
+              color:
+                  Colors.white
+                      .withValues(
+                alpha: 0.11,
               ),
               borderRadius:
                   BorderRadius.circular(
-                13,
+                16,
               ),
             ),
-            child: const Icon(
-              Icons
-                  .edit_note_rounded,
-              color:
-                  AppTheme.primary,
+            child:
+                const Icon(
+              Icons.add_chart_rounded,
+              color: Colors.white,
+              size: 23,
             ),
           ),
 
@@ -338,25 +418,30 @@ class _AddInvestmentScreenState
               children: [
                 const Text(
                   'Investimento manual',
-                  style: TextStyle(
-                    fontSize: 15,
+                  style:
+                      TextStyle(
+                    color:
+                        Colors.white,
+                    fontSize: 16,
                     fontWeight:
-                        FontWeight
-                            .w700,
+                        FontWeight.w800,
                   ),
                 ),
 
                 const SizedBox(
-                  height: 4,
+                  height: 5,
                 ),
 
                 Text(
-                  'Use esta opção para ativos que não aparecem nas instituições conectadas.',
+                  'Adicione ativos que não aparecem nas suas instituições conectadas.',
                   style: TextStyle(
-                    fontSize: 13,
+                    color:
+                        Colors.white
+                            .withValues(
+                      alpha: 0.68,
+                    ),
+                    fontSize: 11.5,
                     height: 1.4,
-                    color: Colors
-                        .grey.shade600,
                   ),
                 ),
               ],
@@ -373,8 +458,8 @@ class _AddInvestmentScreenState
 
   Widget _buildInvestmentTypes() {
     return Wrap(
-      spacing: 10,
-      runSpacing: 10,
+      spacing: 9,
+      runSpacing: 9,
       children:
           _investmentTypes.map(
         (option) {
@@ -385,7 +470,7 @@ class _AddInvestmentScreenState
           return InkWell(
             borderRadius:
                 BorderRadius.circular(
-              16,
+              17,
             ),
             onTap: () {
               setState(() {
@@ -396,31 +481,60 @@ class _AddInvestmentScreenState
             child: AnimatedContainer(
               duration:
                   const Duration(
-                milliseconds: 160,
+                milliseconds: 180,
               ),
+              curve:
+                  Curves.easeOut,
               padding:
                   const EdgeInsets
                       .symmetric(
-                horizontal: 14,
+                horizontal: 13,
                 vertical: 11,
               ),
               decoration:
                   BoxDecoration(
-                color: selected
-                    ? AppTheme.primary
-                    : Colors.white,
+                color:
+                    selected
+                        ? AppTheme.primary
+                        : Colors.white
+                            .withValues(
+                          alpha: 0.60,
+                        ),
                 borderRadius:
-                    BorderRadius
-                        .circular(
-                  16,
+                    BorderRadius.circular(
+                  17,
                 ),
                 border: Border.all(
-                  color: selected
-                      ? AppTheme
-                          .primary
-                      : Colors.grey
-                          .shade200,
+                  color:
+                      selected
+                          ? AppTheme.primary
+                          : Colors.white
+                              .withValues(
+                            alpha:
+                                0.78,
+                          ),
                 ),
+                boxShadow:
+                    selected
+                        ? [
+                            BoxShadow(
+                              color:
+                                  AppTheme
+                                      .primary
+                                      .withValues(
+                                alpha:
+                                    0.14,
+                              ),
+                              blurRadius:
+                                  15,
+                              offset:
+                                  const Offset(
+                                0,
+                                6,
+                              ),
+                            ),
+                          ]
+                        : null,
               ),
               child: Row(
                 mainAxisSize:
@@ -428,11 +542,12 @@ class _AddInvestmentScreenState
                 children: [
                   Icon(
                     option.icon,
-                    size: 18,
-                    color: selected
-                        ? Colors.white
-                        : AppTheme
-                            .primary,
+                    size: 17,
+                    color:
+                        selected
+                            ? Colors.white
+                            : AppTheme
+                                .primary,
                   ),
 
                   const SizedBox(
@@ -442,14 +557,13 @@ class _AddInvestmentScreenState
                   Text(
                     option.label,
                     style: TextStyle(
-                      fontSize: 13,
+                      color:
+                          selected
+                              ? Colors.white
+                              : AppTheme.ink,
+                      fontSize: 12,
                       fontWeight:
-                          FontWeight
-                              .w600,
-                      color: selected
-                          ? Colors.white
-                          : Colors
-                              .black87,
+                          FontWeight.w600,
                     ),
                   ),
                 ],
@@ -471,15 +585,18 @@ class _AddInvestmentScreenState
           _nameController,
       textCapitalization:
           TextCapitalization.words,
+      textInputAction:
+          TextInputAction.next,
       decoration:
           const InputDecoration(
         labelText:
             'Nome do investimento',
         hintText:
             'Ex.: Bitcoin',
-        prefixIcon: Icon(
+        prefixIcon:
+            Icon(
           Icons
-              .account_balance_wallet_outlined,
+              .account_balance_wallet_rounded,
         ),
       ),
       validator: (value) {
@@ -493,21 +610,24 @@ class _AddInvestmentScreenState
     );
   }
 
-  Widget
-      _buildInstitutionField() {
+  Widget _buildInstitutionField() {
     return TextFormField(
       controller:
           _institutionController,
       textCapitalization:
           TextCapitalization.words,
+      textInputAction:
+          TextInputAction.next,
       decoration:
           const InputDecoration(
-        labelText: 'Instituição',
+        labelText:
+            'Instituição',
         hintText:
             'Ex.: Binance',
-        prefixIcon: Icon(
+        prefixIcon:
+            Icon(
           Icons
-              .account_balance_outlined,
+              .account_balance_rounded,
         ),
       ),
       validator: (value) {
@@ -526,15 +646,17 @@ class _AddInvestmentScreenState
       controller:
           _tickerController,
       textCapitalization:
-          TextCapitalization
-              .characters,
+          TextCapitalization.characters,
+      textInputAction:
+          TextInputAction.next,
       decoration:
           const InputDecoration(
         labelText:
             'Ticker (opcional)',
         hintText:
             'Ex.: BTC ou IVVB11',
-        prefixIcon: Icon(
+        prefixIcon:
+            Icon(
           Icons.tag_rounded,
         ),
       ),
@@ -550,15 +672,25 @@ class _AddInvestmentScreenState
               .numberWithOptions(
         decimal: true,
       ),
+      textInputAction:
+          TextInputAction.done,
+      onFieldSubmitted:
+          (_) {
+        if (!_isSaving) {
+          _saveInvestment();
+        }
+      },
       decoration:
           const InputDecoration(
         labelText:
             'Valor atual',
-        hintText: '0,00',
-        prefixText: 'R\$ ',
-        prefixIcon: Icon(
-          Icons
-              .payments_outlined,
+        hintText:
+            '0,00',
+        prefixText:
+            'R\$ ',
+        prefixIcon:
+            Icon(
+          Icons.payments_rounded,
         ),
       ),
       validator: (value) {
@@ -567,10 +699,7 @@ class _AddInvestmentScreenState
           return 'Informe o valor atual';
         }
 
-        final parsed =
-            _parseMoney(value);
-
-        if (parsed <= 0) {
+        if (_parseMoney(value) <= 0) {
           return 'Informe um valor maior que zero';
         }
 
@@ -579,120 +708,137 @@ class _AddInvestmentScreenState
     );
   }
 
-  Widget
-      _buildValueExplanation() {
-    return Text(
-      'Por enquanto, este é o valor que será usado no total da sua carteira. Você poderá atualizá-lo manualmente sempre que quiser.',
-      style: TextStyle(
-        fontSize: 12,
-        height: 1.45,
-        color:
-            Colors.grey.shade500,
+  // =========================================================
+  // ERRO / SALVAR
+  // =========================================================
+
+  Widget _buildError() {
+    return FinanceGlassCard(
+      radius: 17,
+      child: Padding(
+        padding:
+            const EdgeInsets.all(
+          13,
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons
+                  .error_outline_rounded,
+              color:
+                  AppTheme.danger,
+              size: 19,
+            ),
+
+            const SizedBox(
+              width: 9,
+            ),
+
+            Expanded(
+              child: Text(
+                _errorMessage!,
+                style:
+                    const TextStyle(
+                  color:
+                      AppTheme.danger,
+                  fontSize: 12,
+                  fontWeight:
+                      FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  // =========================================================
-  // ERRO
-  // =========================================================
-
-  Widget _buildError() {
+  Widget _buildSaveButton() {
     return Container(
-      padding:
-          const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppTheme.danger
-            .withValues(
-          alpha: 0.07,
-        ),
+      height: 55,
+      decoration:
+          BoxDecoration(
+        gradient:
+            AppTheme.primaryGradient,
         borderRadius:
-            BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons
-                .error_outline_rounded,
+            BorderRadius.circular(
+          18,
+        ),
+        boxShadow: [
+          BoxShadow(
             color:
-                AppTheme.danger,
-            size: 19,
-          ),
-
-          const SizedBox(
-            width: 8,
-          ),
-
-          Expanded(
-            child: Text(
-              _errorMessage!,
-              style:
-                  const TextStyle(
-                color:
-                    AppTheme.danger,
-                fontSize: 13,
-              ),
+                AppTheme.primary
+                    .withValues(
+              alpha: 0.18,
+            ),
+            blurRadius: 18,
+            offset:
+                const Offset(
+              0,
+              8,
             ),
           ),
         ],
       ),
-    );
-  }
-
-  // =========================================================
-  // SALVAR
-  // =========================================================
-
-  Widget _buildSaveButton() {
-    return ElevatedButton.icon(
-      onPressed:
-          _isSaving
-              ? null
-              : _saveInvestment,
-      icon: _isSaving
-          ? const SizedBox(
-              width: 18,
-              height: 18,
-              child:
-                  CircularProgressIndicator(
-                strokeWidth: 2,
-                color:
-                    Colors.white,
-              ),
-            )
-          : const Icon(
-              Icons
-                  .check_rounded,
-            ),
-      label: Text(
-        _isSaving
-            ? 'Salvando...'
-            : 'Adicionar investimento',
-      ),
-    );
-  }
-
-  // =========================================================
-  // TÍTULO
-  // =========================================================
-
-  Widget _buildSectionTitle(
-    String title,
-  ) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontSize: 16,
-        fontWeight:
-            FontWeight.w800,
+      child: Material(
+        color:
+            Colors.transparent,
+        child: InkWell(
+          onTap:
+              _isSaving
+                  ? null
+                  : _saveInvestment,
+          borderRadius:
+              BorderRadius.circular(
+            18,
+          ),
+          child: Center(
+            child:
+                _isSaving
+                    ? const SizedBox(
+                        width: 21,
+                        height: 21,
+                        child:
+                            CircularProgressIndicator(
+                          color:
+                              Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Row(
+                        mainAxisSize:
+                            MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons
+                                .add_rounded,
+                            color:
+                                Colors.white,
+                            size: 19,
+                          ),
+                          SizedBox(
+                            width: 8,
+                          ),
+                          Text(
+                            'Adicionar investimento',
+                            style:
+                                TextStyle(
+                              color:
+                                  Colors.white,
+                              fontSize: 14,
+                              fontWeight:
+                                  FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+          ),
+        ),
       ),
     );
   }
 }
 
-
-// ===========================================================
-// OPÇÃO DE TIPO
-// ===========================================================
 
 class InvestmentTypeOption {
   final String value;

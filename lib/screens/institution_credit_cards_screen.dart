@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
-import 'credit_card_detail_screen.dart';
 
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
+import '../widgets/finance_ui.dart';
+
+import 'credit_card_detail_screen.dart';
+
 
 class InstitutionCreditCardsScreen
     extends StatelessWidget {
@@ -23,7 +26,8 @@ class InstitutionCreditCardsScreen
     double total = 0;
 
     for (final card in cards) {
-      total += _getCardBalance(
+      total +=
+          _getCardBalance(
         card,
       );
     }
@@ -35,12 +39,9 @@ class InstitutionCreditCardsScreen
     double total = 0;
 
     for (final card in cards) {
-      final limit =
-          _getCreditLimit(card);
-
-      if (limit != null) {
-        total += limit;
-      }
+      total +=
+          _getCreditLimit(card) ??
+              0;
     }
 
     return total;
@@ -50,12 +51,11 @@ class InstitutionCreditCardsScreen
     double total = 0;
 
     for (final card in cards) {
-      final available =
-          _getAvailableLimit(card);
-
-      if (available != null) {
-        total += available;
-      }
+      total +=
+          _getAvailableLimit(
+                card,
+              ) ??
+              0;
     }
 
     return total;
@@ -108,13 +108,9 @@ class InstitutionCreditCardsScreen
       return value.toDouble();
     }
 
-    if (value != null) {
-      return double.tryParse(
-        value.toString(),
-      );
-    }
-
-    return null;
+    return double.tryParse(
+      value?.toString() ?? '',
+    );
   }
 
   double? _getAvailableLimit(
@@ -128,13 +124,9 @@ class InstitutionCreditCardsScreen
       return value.toDouble();
     }
 
-    if (value != null) {
-      return double.tryParse(
-        value.toString(),
-      );
-    }
-
-    return null;
+    return double.tryParse(
+      value?.toString() ?? '',
+    );
   }
 
   String _getCardName(
@@ -203,8 +195,7 @@ class InstitutionCreditCardsScreen
       return '';
     }
 
-    switch (
-        brand.toUpperCase()) {
+    switch (brand.toUpperCase()) {
       case 'MASTERCARD':
         return 'Mastercard';
 
@@ -320,13 +311,9 @@ class InstitutionCreditCardsScreen
       return value.toDouble();
     }
 
-    if (value != null) {
-      return double.tryParse(
-        value.toString(),
-      );
-    }
-
-    return null;
+    return double.tryParse(
+      value?.toString() ?? '',
+    );
   }
 
   String _getStatus(
@@ -354,6 +341,23 @@ class InstitutionCreditCardsScreen
     }
   }
 
+  void _openCard(
+    BuildContext context,
+    dynamic card,
+  ) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            CreditCardDetailScreen(
+          card:
+              Map<String, dynamic>.from(
+            card,
+          ),
+        ),
+      ),
+    );
+  }
+
   // =========================================================
   // BUILD
   // =========================================================
@@ -373,35 +377,45 @@ class InstitutionCreditCardsScreen
       ),
     );
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          institutionName,
-        ),
-      ),
-      body: ListView(
+    return FinancePage(
+      title: institutionName,
+      child: ListView(
+        physics:
+            const AlwaysScrollableScrollPhysics(),
         padding:
             const EdgeInsets.fromLTRB(
           20,
           8,
           20,
-          32,
+          36,
         ),
         children: [
-          _buildSummaryCard(),
+          _buildHero(),
 
           const SizedBox(
             height: 30,
           ),
 
-          _buildSectionHeader(),
+          FinanceSectionHeader(
+            title: 'Seus cartões',
+            trailing:
+                '${cards.length}',
+          ),
 
           const SizedBox(
             height: 12,
           ),
 
           if (sortedCards.isEmpty)
-            _buildEmptyState()
+            const FinanceEmptyState(
+              icon:
+                  Icons
+                      .credit_card_rounded,
+              title:
+                  'Nenhum cartão encontrado',
+              subtitle:
+                  'Não há cartões disponíveis nesta instituição.',
+            )
           else
             ...sortedCards.map(
               (card) =>
@@ -416,25 +430,32 @@ class InstitutionCreditCardsScreen
   }
 
   // =========================================================
-  // RESUMO
+  // HERO
   // =========================================================
 
-  Widget _buildSummaryCard() {
+  Widget _buildHero() {
     return Container(
       width: double.infinity,
       padding:
           const EdgeInsets.all(
-        24,
+        23,
       ),
       decoration: BoxDecoration(
-        color:
-            const Color(
-          0xFF315B78,
-        ),
+        gradient:
+            AppTheme.premiumGradient,
         borderRadius:
             BorderRadius.circular(
-          24,
+          29,
         ),
+        border: Border.all(
+          color:
+              Colors.white
+                  .withValues(
+            alpha: 0.15,
+          ),
+        ),
+        boxShadow:
+            AppTheme.floatingShadow,
       ),
       child: Column(
         crossAxisAlignment:
@@ -443,18 +464,17 @@ class InstitutionCreditCardsScreen
           Text(
             'Total utilizado em $institutionName',
             style: TextStyle(
-              color: Colors.white
-                  .withValues(
-                alpha: 0.76,
+              color:
+                  Colors.white
+                      .withValues(
+                alpha: 0.68,
               ),
-              fontSize: 14,
-              fontWeight:
-                  FontWeight.w500,
+              fontSize: 13,
             ),
           ),
 
           const SizedBox(
-            height: 8,
+            height: 7,
           ),
 
           Text(
@@ -463,97 +483,101 @@ class InstitutionCreditCardsScreen
             ),
             style:
                 const TextStyle(
-              color: Colors.white,
-              fontSize: 31,
+              color:
+                  Colors.white,
+              fontSize: 32,
               fontWeight:
                   FontWeight.w800,
-              letterSpacing: -0.8,
+              letterSpacing:
+                  -0.9,
             ),
           ),
 
           const SizedBox(
-            height: 22,
+            height: 21,
           ),
 
-          Row(
-            children: [
-              Expanded(
-                child:
-                    _buildSummaryDetail(
-                  label:
-                      'Limite total',
-                  value:
-                      formatCurrency(
+          Container(
+            padding:
+                const EdgeInsets.all(
+              15,
+            ),
+            decoration:
+                BoxDecoration(
+              color:
+                  Colors.white
+                      .withValues(
+                alpha: 0.08,
+              ),
+              borderRadius:
+                  BorderRadius.circular(
+                18,
+              ),
+              border:
+                  Border.all(
+                color:
+                    Colors.white
+                        .withValues(
+                  alpha: 0.09,
+                ),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child:
+                      _heroDetail(
+                    'Limite total',
                     _totalLimit,
                   ),
                 ),
-              ),
 
-              Container(
-                width: 1,
-                height: 38,
-                color: Colors.white
-                    .withValues(
-                  alpha: 0.18,
+                Container(
+                  height: 38,
+                  width: 1,
+                  color:
+                      Colors.white
+                          .withValues(
+                    alpha: 0.14,
+                  ),
                 ),
-              ),
 
-              const SizedBox(
-                width: 18,
-              ),
+                const SizedBox(
+                  width: 16,
+                ),
 
-              Expanded(
-                child:
-                    _buildSummaryDetail(
-                  label:
-                      'Disponível',
-                  value:
-                      formatCurrency(
+                Expanded(
+                  child:
+                      _heroDetail(
+                    'Disponível',
                     _totalAvailable,
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
 
           const SizedBox(
-            height: 18,
+            height: 15,
           ),
 
-          Row(
-            children: [
-              const Icon(
-                Icons.credit_card_rounded,
-                size: 16,
-                color: Colors.white70,
-              ),
-
-              const SizedBox(
-                width: 6,
-              ),
-
-              Text(
+          FinanceHeroInfo(
+            icon:
+                Icons
+                    .credit_card_rounded,
+            text:
                 '${cards.length} '
                 '${cards.length == 1 ? 'cartão' : 'cartões'}',
-                style: TextStyle(
-                  color: Colors.white
-                      .withValues(
-                    alpha: 0.68,
-                  ),
-                  fontSize: 12,
-                ),
-              ),
-            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSummaryDetail({
-    required String label,
-    required String value,
-  }) {
+  Widget _heroDetail(
+    String label,
+    double value,
+  ) {
     return Column(
       crossAxisAlignment:
           CrossAxisAlignment.start,
@@ -561,60 +585,29 @@ class InstitutionCreditCardsScreen
         Text(
           label,
           style: TextStyle(
-            color: Colors.white
-                .withValues(
+            color:
+                Colors.white
+                    .withValues(
               alpha: 0.58,
             ),
-            fontSize: 11,
+            fontSize: 10.5,
           ),
         ),
-
         const SizedBox(
-          height: 4,
+          height: 5,
         ),
-
         Text(
-          value,
+          formatCurrency(value),
           maxLines: 1,
           overflow:
               TextOverflow.ellipsis,
           style:
               const TextStyle(
-            color: Colors.white,
+            color:
+                Colors.white,
             fontSize: 14,
             fontWeight:
                 FontWeight.w700,
-          ),
-        ),
-      ],
-    );
-  }
-
-  // =========================================================
-  // SEÇÃO
-  // =========================================================
-
-  Widget _buildSectionHeader() {
-    return Row(
-      children: [
-        const Expanded(
-          child: Text(
-            'Seus cartões',
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight:
-                  FontWeight.w800,
-              letterSpacing: -0.2,
-            ),
-          ),
-        ),
-
-        Text(
-          '${cards.length}',
-          style: TextStyle(
-            fontSize: 13,
-            color:
-                Colors.grey.shade500,
           ),
         ),
       ],
@@ -644,13 +637,13 @@ class InstitutionCreditCardsScreen
       card,
     );
 
-    final minimumPayment =
-        _getMinimumPayment(
+    final dueDate =
+        _getDueDate(
       card,
     );
 
-    final dueDate =
-        _getDueDate(
+    final minimumPayment =
+        _getMinimumPayment(
       card,
     );
 
@@ -668,295 +661,244 @@ class InstitutionCreditCardsScreen
     return Padding(
       padding:
           const EdgeInsets.only(
-        bottom: 14,
+        bottom: 12,
       ),
-      child: Material(
-        color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(
-          20,
-        ),
-        child: InkWell(
-          borderRadius:
-              BorderRadius.circular(
-            20,
-          ),
-          onTap: () {
+      child: FinanceGlassCard(
+        radius: 23,
+        onTap: () {
           _openCard(
             context,
             card,
           );
         },
-          child: Container(
-            padding:
-                const EdgeInsets.all(
-              18,
-            ),
-            decoration: BoxDecoration(
-              borderRadius:
-                  BorderRadius.circular(
-                20,
-              ),
-              border: Border.all(
-                color:
-                    Colors.grey.shade200,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                  children: [
-                    _buildCardIcon(),
+        child: Padding(
+          padding:
+              const EdgeInsets.all(
+            17,
+          ),
+          child: Column(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const FinanceIconBubble(
+                    icon:
+                        Icons
+                            .credit_card_rounded,
+                  ),
 
-                    const SizedBox(
-                      width: 14,
-                    ),
+                  const SizedBox(
+                    width: 14,
+                  ),
 
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _getCardName(
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment:
+                          CrossAxisAlignment
+                              .start,
+                      children: [
+                        Text(
+                          _getCardName(
+                            card,
+                          ),
+                          maxLines: 2,
+                          overflow:
+                              TextOverflow
+                                  .ellipsis,
+                          style:
+                              const TextStyle(
+                            color:
+                                AppTheme.ink,
+                            fontSize: 14.5,
+                            fontWeight:
+                                FontWeight
+                                    .w700,
+                          ),
+                        ),
+
+                        const SizedBox(
+                          height: 5,
+                        ),
+
+                        Text(
+                          _getCardSubtitle(
+                            card,
+                          ),
+                          style:
+                              const TextStyle(
+                            color:
+                                AppTheme
+                                    .inkSoft,
+                            fontSize: 11.5,
+                          ),
+                        ),
+
+                        if (_getCardNumber(
                               card,
-                            ),
-                            maxLines: 2,
-                            overflow:
-                                TextOverflow.ellipsis,
-                            style:
-                                const TextStyle(
-                              fontSize: 15,
-                              fontWeight:
-                                  FontWeight.w700,
-                            ),
-                          ),
-
+                            )
+                            .isNotEmpty) ...[
                           const SizedBox(
-                            height: 5,
+                            height: 3,
                           ),
-
                           Text(
-                            _getCardSubtitle(
+                            _getCardNumber(
                               card,
                             ),
                             style: TextStyle(
-                              fontSize: 12,
-                              color: Colors
-                                  .grey.shade500,
+                              color:
+                                  AppTheme
+                                      .inkSoft
+                                      .withValues(
+                                alpha:
+                                    0.65,
+                              ),
+                              fontSize:
+                                  10.5,
                             ),
                           ),
-
-                          if (_getCardNumber(
-                            card,
-                          ).isNotEmpty) ...[
-                            const SizedBox(
-                              height: 3,
-                            ),
-
-                            Text(
-                              _getCardNumber(
-                                card,
-                              ),
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors
-                                    .grey.shade400,
-                              ),
-                            ),
-                          ],
                         ],
-                      ),
-                    ),
-
-                    Icon(
-                      Icons
-                          .chevron_right_rounded,
-                      size: 26,
-                      color: Colors
-                          .grey.shade400,
-                    ),
-                  ],
-                ),
-
-                const SizedBox(
-                  height: 20,
-                ),
-
-                Text(
-                  'Em uso',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color:
-                        Colors.grey.shade500,
-                  ),
-                ),
-
-                const SizedBox(
-                  height: 4,
-                ),
-
-                Text(
-                  formatCurrency(
-                    used,
-                  ),
-                  style:
-                      const TextStyle(
-                    fontSize: 23,
-                    fontWeight:
-                        FontWeight.w800,
-                    letterSpacing: -0.4,
-                  ),
-                ),
-
-                if (limit != null &&
-                    limit > 0) ...[
-                  const SizedBox(
-                    height: 16,
-                  ),
-
-                  ClipRRect(
-                    borderRadius:
-                        BorderRadius.circular(
-                      20,
-                    ),
-                    child:
-                        LinearProgressIndicator(
-                      value: utilization
-                          .clamp(
-                            0.0,
-                            1.0,
-                          )
-                          .toDouble(),
-                      minHeight: 6,
-                      backgroundColor:
-                          AppTheme.primary
-                              .withValues(
-                        alpha: 0.08,
-                      ),
-                      valueColor:
-                          const AlwaysStoppedAnimation<
-                              Color>(
-                        AppTheme.primary,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(
-                    height: 10,
-                  ),
-
-                  Row(
-                    children: [
-                      Expanded(
-                        child:
-                            _buildInfo(
-                          'Limite',
-                          formatCurrency(
-                            limit,
-                          ),
-                        ),
-                      ),
-
-                      if (available != null)
-                        Expanded(
-                          child:
-                              _buildInfo(
-                            'Disponível',
-                            formatCurrency(
-                              available,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
-
-                if (dueDate != null ||
-                    minimumPayment !=
-                        null ||
-                    status.isNotEmpty) ...[
-                  const SizedBox(
-                    height: 16,
-                  ),
-
-                  Container(
-                    width:
-                        double.infinity,
-                    padding:
-                        const EdgeInsets.all(
-                      12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors
-                          .grey.shade50,
-                      borderRadius:
-                          BorderRadius.circular(
-                        12,
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        if (dueDate != null)
-                          _buildMiniInfo(
-                            'Vencimento',
-                            dueDate,
-                          ),
-
-                        if (minimumPayment !=
-                            null)
-                          _buildMiniInfo(
-                            'Pagamento mínimo',
-                            formatCurrency(
-                              minimumPayment,
-                            ),
-                          ),
-
-                        if (status.isNotEmpty)
-                          _buildMiniInfo(
-                            'Status',
-                            status,
-                          ),
                       ],
                     ),
                   ),
+
+                  const SizedBox(
+                    width: 8,
+                  ),
+
+                  const Icon(
+                    Icons
+                        .chevron_right_rounded,
+                    color:
+                        AppTheme.inkSoft,
+                    size: 24,
+                  ),
                 ],
+              ),
+
+              const SizedBox(
+                height: 18,
+              ),
+
+              Row(
+                children: [
+                  Expanded(
+                    child:
+                        _cardMetric(
+                      'Em uso',
+                      formatCurrency(
+                        used,
+                      ),
+                    ),
+                  ),
+
+                  Expanded(
+                    child:
+                        _cardMetric(
+                      'Disponível',
+                      available != null
+                          ? formatCurrency(
+                              available,
+                            )
+                          : '—',
+                    ),
+                  ),
+                ],
+              ),
+
+              if (limit != null &&
+                  limit > 0) ...[
+                const SizedBox(
+                  height: 15,
+                ),
+                ClipRRect(
+                  borderRadius:
+                      BorderRadius.circular(
+                    20,
+                  ),
+                  child:
+                      LinearProgressIndicator(
+                    value:
+                        utilization.clamp(
+                      0.0,
+                      1.0,
+                    ),
+                    minHeight: 4.5,
+                    backgroundColor:
+                        AppTheme.primary
+                            .withValues(
+                      alpha: 0.07,
+                    ),
+                    valueColor:
+                        const AlwaysStoppedAnimation<
+                            Color>(
+                      AppTheme.primary,
+                    ),
+                  ),
+                ),
               ],
-            ),
+
+              if (dueDate != null ||
+                  minimumPayment != null ||
+                  status.isNotEmpty) ...[
+                const SizedBox(
+                  height: 15,
+                ),
+
+                Container(
+                  padding:
+                      const EdgeInsets
+                          .symmetric(
+                    horizontal: 13,
+                    vertical: 10,
+                  ),
+                  decoration:
+                      BoxDecoration(
+                    color:
+                        AppTheme.primary
+                            .withValues(
+                      alpha: 0.045,
+                    ),
+                    borderRadius:
+                        BorderRadius
+                            .circular(
+                      14,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      if (dueDate != null)
+                        _detailRow(
+                          'Vencimento',
+                          dueDate,
+                        ),
+
+                      if (minimumPayment !=
+                          null)
+                        _detailRow(
+                          'Pagamento mínimo',
+                          formatCurrency(
+                            minimumPayment,
+                          ),
+                        ),
+
+                      if (status.isNotEmpty)
+                        _detailRow(
+                          'Status',
+                          status,
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildCardIcon() {
-    return Container(
-      width: 48,
-      height: 48,
-      decoration: BoxDecoration(
-        color: AppTheme.primary
-            .withValues(
-          alpha: 0.09,
-        ),
-        borderRadius:
-            BorderRadius.circular(
-          15,
-        ),
-      ),
-      child: const Icon(
-        Icons.credit_card_rounded,
-        color:
-            AppTheme.primary,
-        size: 22,
-      ),
-    );
-  }
-
-  Widget _buildInfo(
+  Widget _cardMetric(
     String label,
     String value,
   ) {
@@ -966,22 +908,26 @@ class InstitutionCreditCardsScreen
       children: [
         Text(
           label,
-          style: TextStyle(
-            fontSize: 11,
-            color:
-                Colors.grey.shade500,
-          ),
-        ),
-
-        const SizedBox(
-          height: 3,
-        ),
-
-        Text(
-          value,
           style:
               const TextStyle(
-            fontSize: 13,
+            color:
+                AppTheme.inkSoft,
+            fontSize: 10.5,
+          ),
+        ),
+        const SizedBox(
+          height: 4,
+        ),
+        Text(
+          value,
+          maxLines: 1,
+          overflow:
+              TextOverflow.ellipsis,
+          style:
+              const TextStyle(
+            color:
+                AppTheme.ink,
+            fontSize: 13.5,
             fontWeight:
                 FontWeight.w700,
           ),
@@ -990,87 +936,40 @@ class InstitutionCreditCardsScreen
     );
   }
 
-  Widget _buildMiniInfo(
+  Widget _detailRow(
     String label,
     String value,
   ) {
     return Padding(
       padding:
           const EdgeInsets.symmetric(
-        vertical: 4,
+        vertical: 3,
       ),
       child: Row(
         children: [
           Expanded(
             child: Text(
               label,
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors
-                    .grey.shade500,
+              style:
+                  const TextStyle(
+                color:
+                    AppTheme.inkSoft,
+                fontSize: 10.5,
               ),
             ),
           ),
-
           Text(
             value,
             style:
                 const TextStyle(
-              fontSize: 11,
+              color:
+                  AppTheme.ink,
+              fontSize: 10.5,
               fontWeight:
                   FontWeight.w600,
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  // =========================================================
-  // TEMPORÁRIO - 4C
-  // =========================================================
-
-  void _openCard(
-    BuildContext context,
-    dynamic card,
-  ) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) =>
-            CreditCardDetailScreen(
-          card:
-              Map<String, dynamic>.from(
-            card,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // =========================================================
-  // EMPTY
-  // =========================================================
-
-  Widget _buildEmptyState() {
-    return Container(
-      padding:
-          const EdgeInsets.all(
-        24,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(
-          18,
-        ),
-        border: Border.all(
-          color:
-              Colors.grey.shade200,
-        ),
-      ),
-      child:
-          const Text(
-        'Nenhum cartão encontrado nesta instituição.',
       ),
     );
   }

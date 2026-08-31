@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
+import '../widgets/finance_ui.dart';
+
 
 class PluggyInvestmentDetailScreen
     extends StatelessWidget {
@@ -13,7 +15,7 @@ class PluggyInvestmentDetailScreen
   });
 
   // =========================================================
-  // VALORES PRINCIPAIS
+  // VALORES
   // =========================================================
 
   double get _currentValue {
@@ -35,24 +37,21 @@ class PluggyInvestmentDetailScreen
   }
 
   double? get _profitValue {
-    final amountProfit =
+    final profit =
         investment['amountProfit'];
 
-    if (amountProfit != null) {
-      return _asDouble(
-        amountProfit,
-      );
+    if (profit != null) {
+      return _asDouble(profit);
     }
 
     final original =
         _originalValue;
 
-    if (original != null) {
-      return _currentValue -
-          original;
+    if (original == null) {
+      return null;
     }
 
-    return null;
+    return _currentValue - original;
   }
 
   double? get _profitPercentage {
@@ -64,9 +63,8 @@ class PluggyInvestmentDetailScreen
       return null;
     }
 
-    return (
-      (_currentValue / original) - 1
-    ) * 100;
+    return ((_currentValue / original) - 1) *
+        100;
   }
 
   // =========================================================
@@ -82,9 +80,7 @@ class PluggyInvestmentDetailScreen
       return 'Investimento';
     }
 
-    return value
-        .toString()
-        .trim();
+    return value.toString().trim();
   }
 
   String get _type {
@@ -107,27 +103,52 @@ class PluggyInvestmentDetailScreen
 
   String get _institution {
     final candidates = [
-      investment[
-          'institution_name'],
-      investment[
-          'resolved_institution'],
+      investment['institution_name'],
+      investment['resolved_institution'],
       investment['issuer'],
+      investment['institution'],
     ];
 
-    for (final value
-        in candidates) {
+    for (final value in candidates) {
       if (value != null &&
-          value
-              .toString()
-              .trim()
-              .isNotEmpty) {
-        return value
-            .toString()
-            .trim();
+          value.toString().trim().isNotEmpty) {
+        return value.toString().trim();
       }
     }
 
     return 'Instituição';
+  }
+
+  IconData get _investmentIcon {
+    final type =
+        '${investment['type'] ?? ''} '
+                '${investment['subtype'] ?? ''}'
+            .toUpperCase();
+
+    if (type.contains('CRYPTO')) {
+      return Icons.currency_bitcoin_rounded;
+    }
+
+    if (type.contains('ETF')) {
+      return Icons.pie_chart_rounded;
+    }
+
+    if (type.contains('STOCK')) {
+      return Icons.show_chart_rounded;
+    }
+
+    if (type.contains('FIXED') ||
+        type.contains('CDB') ||
+        type.contains('LCI') ||
+        type.contains('LCA')) {
+      return Icons.savings_rounded;
+    }
+
+    if (type.contains('FUND')) {
+      return Icons.account_balance_rounded;
+    }
+
+    return Icons.trending_up_rounded;
   }
 
   // =========================================================
@@ -144,55 +165,31 @@ class PluggyInvestmentDetailScreen
     final rawFixedRate =
         investment['fixedAnnualRate'];
 
-    final bool hasRate =
-        rawRate != null;
-
-    final bool hasRateType =
-        rawRateType != null &&
-        rawRateType
-            .toString()
-            .trim()
-            .isNotEmpty;
-
-    final bool hasFixedRate =
-        rawFixedRate != null;
-
-    final rate = hasRate
-        ? _asDouble(rawRate)
-        : null;
+    final rate =
+        rawRate != null
+            ? _asDouble(rawRate)
+            : null;
 
     final fixedRate =
-        hasFixedRate
+        rawFixedRate != null
             ? _asDouble(rawFixedRate)
             : null;
 
     final rateType =
-        hasRateType
+        rawRateType != null &&
+                rawRateType
+                    .toString()
+                    .trim()
+                    .isNotEmpty
             ? rawRateType
                 .toString()
                 .trim()
                 .toUpperCase()
             : null;
 
-    // =====================================================
-    // INDEXADO + TAXA FIXA
-    //
-    // Ex:
-    // 100% IPCA + 6,50% a.a.
-    // =====================================================
-
     if (rate != null &&
         rateType != null &&
         fixedRate != null) {
-      // Se for 100% do indexador,
-      // visualmente fica mais natural:
-      //
-      // IPCA + 6,50% a.a.
-      //
-      // em vez de:
-      //
-      // 100% do IPCA + 6,50% a.a.
-
       if (rate == 100) {
         return '$rateType + '
             '${_cleanNumber(fixedRate)}% a.a.';
@@ -203,38 +200,44 @@ class PluggyInvestmentDetailScreen
           '${_cleanNumber(fixedRate)}% a.a.';
     }
 
-    // =====================================================
-    // INDEXADO
-    //
-    // Ex:
-    // 102% do CDI
-    // =====================================================
-
     if (rate != null &&
         rateType != null) {
       return '${_cleanNumber(rate)}% do $rateType';
     }
 
-    // =====================================================
-    // PREFIXADO
-    //
-    // Ex:
-    // 16,76% a.a.
-    // =====================================================
-
     if (fixedRate != null) {
       return '${_cleanNumber(fixedRate)}% a.a.';
     }
-
-    // =====================================================
-    // TAXA SEM INDEXADOR
-    // =====================================================
 
     if (rate != null) {
       return '${_cleanNumber(rate)}%';
     }
 
     return null;
+  }
+
+  bool get _hasRateInfo {
+    return _contractedRate != null ||
+        investment['annualRate'] != null ||
+        investment['lastMonthRate'] != null ||
+        investment[
+                'lastTwelveMonthsRate'] !=
+            null;
+  }
+
+  bool get _hasDates {
+    return investment['purchaseDate'] != null ||
+        investment['issueDate'] != null ||
+        investment['dueDate'] != null ||
+        investment['gracePeriodDate'] !=
+            null;
+  }
+
+  bool get _hasTaxes {
+    return investment['taxes'] != null ||
+        investment['taxes2'] != null ||
+        investment['amountWithdrawal'] !=
+            null;
   }
 
   // =========================================================
@@ -245,101 +248,224 @@ class PluggyInvestmentDetailScreen
   Widget build(
     BuildContext context,
   ) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Detalhes do investimento',
+    return FinancePage(
+      title: 'Investimento',
+      child: ListView(
+        physics:
+            const AlwaysScrollableScrollPhysics(),
+        padding:
+            const EdgeInsets.fromLTRB(
+          20,
+          8,
+          20,
+          36,
         ),
-      ),
-      body: SafeArea(
-        child: ListView(
-          padding:
-              const EdgeInsets.fromLTRB(
-            20,
-            8,
-            20,
-            36,
+        children: [
+          _buildIdentity(),
+
+          const SizedBox(
+            height: 16,
           ),
-          children: [
-            _buildHeader(),
 
-            const SizedBox(
-              height: 20,
-            ),
+          _buildValueHero(),
 
-            _buildValueCard(),
-
-            // =================================================
-            // RENTABILIDADE / TAXA CONTRATADA
-            // =================================================
-
-            if (_hasRateInfo) ...[
-              const SizedBox(
-                height: 30,
-              ),
-
-              _buildSectionTitle(
-                'Rentabilidade',
-              ),
-
-              const SizedBox(
-                height: 12,
-              ),
-
-              _buildRateCard(),
-            ],
-
+          if (_hasRateInfo) ...[
             const SizedBox(
               height: 30,
             ),
 
-            _buildSectionTitle(
-              'Informações do investimento',
+            const FinanceSectionHeader(
+              title: 'Rentabilidade',
             ),
 
             const SizedBox(
               height: 12,
             ),
 
-            _buildInformationCard(),
+            _buildRateCard(),
+          ],
 
-            if (_hasDates) ...[
-              const SizedBox(
-                height: 30,
-              ),
+          const SizedBox(
+            height: 30,
+          ),
 
-              _buildSectionTitle(
-                'Datas',
-              ),
+          const FinanceSectionHeader(
+            title: 'Informações do investimento',
+          ),
 
-              const SizedBox(
-                height: 12,
-              ),
+          const SizedBox(
+            height: 12,
+          ),
 
-              _buildDatesCard(),
-            ],
+          _buildInformationCard(),
 
-            if (_hasTaxes) ...[
-              const SizedBox(
-                height: 30,
-              ),
-
-              _buildSectionTitle(
-                'Impostos e resgate',
-              ),
-
-              const SizedBox(
-                height: 12,
-              ),
-
-              _buildTaxesCard(),
-            ],
-
+          if (_hasDates) ...[
             const SizedBox(
-              height: 28,
+              height: 30,
             ),
 
-            _buildSyncNotice(),
+            const FinanceSectionHeader(
+              title: 'Datas',
+            ),
+
+            const SizedBox(
+              height: 12,
+            ),
+
+            _buildDatesCard(),
+          ],
+
+          if (_hasTaxes) ...[
+            const SizedBox(
+              height: 30,
+            ),
+
+            const FinanceSectionHeader(
+              title: 'Impostos e resgate',
+            ),
+
+            const SizedBox(
+              height: 12,
+            ),
+
+            _buildTaxesCard(),
+          ],
+
+          const SizedBox(
+            height: 24,
+          ),
+
+          _buildSyncNotice(),
+        ],
+      ),
+    );
+  }
+
+  // =========================================================
+  // IDENTIDADE
+  // =========================================================
+
+  Widget _buildIdentity() {
+    return FinanceGlassCard(
+      radius: 23,
+      child: Padding(
+        padding:
+            const EdgeInsets.all(
+          17,
+        ),
+        child: Row(
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+          children: [
+            FinanceIconBubble(
+              icon: _investmentIcon,
+            ),
+
+            const SizedBox(
+              width: 14,
+            ),
+
+            Expanded(
+              child: Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _name,
+                    maxLines: 3,
+                    overflow:
+                        TextOverflow.ellipsis,
+                    style:
+                        const TextStyle(
+                      color: AppTheme.ink,
+                      fontSize: 16,
+                      height: 1.25,
+                      fontWeight:
+                          FontWeight.w800,
+                    ),
+                  ),
+
+                  const SizedBox(
+                    height: 6,
+                  ),
+
+                  Text(
+                    _type,
+                    style:
+                        const TextStyle(
+                      color:
+                          AppTheme.inkSoft,
+                      fontSize: 11.5,
+                    ),
+                  ),
+
+                  const SizedBox(
+                    height: 3,
+                  ),
+
+                  Text(
+                    _institution,
+                    maxLines: 1,
+                    overflow:
+                        TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color:
+                          AppTheme.inkSoft
+                              .withValues(
+                        alpha: 0.75,
+                      ),
+                      fontSize: 10.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(
+                horizontal: 9,
+                vertical: 5,
+              ),
+              decoration:
+                  BoxDecoration(
+                color:
+                    AppTheme.primary
+                        .withValues(
+                  alpha: 0.08,
+                ),
+                borderRadius:
+                    BorderRadius.circular(
+                  20,
+                ),
+              ),
+              child:
+                  const Row(
+                mainAxisSize:
+                    MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.sync_rounded,
+                    color:
+                        AppTheme.primary,
+                    size: 13,
+                  ),
+                  SizedBox(
+                    width: 4,
+                  ),
+                  Text(
+                    'Sincronizado',
+                    style: TextStyle(
+                      color:
+                          AppTheme.primary,
+                      fontSize: 9.5,
+                      fontWeight:
+                          FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -347,73 +473,32 @@ class PluggyInvestmentDetailScreen
   }
 
   // =========================================================
-  // HEADER
+  // HERO
   // =========================================================
 
-  Widget _buildHeader() {
-    return Row(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
-      children: [
-        _buildInvestmentIcon(),
-
-        const SizedBox(
-          width: 14,
-        ),
-
-        Expanded(
-          child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
-            children: [
-              Text(
-                _name,
-                style:
-                    const TextStyle(
-                  fontSize: 19,
-                  height: 1.25,
-                  fontWeight:
-                      FontWeight.w800,
-                ),
-              ),
-
-              const SizedBox(
-                height: 6,
-              ),
-
-              Text(
-                '$_type • $_institution',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors
-                      .grey.shade600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  // =========================================================
-  // CARD PRINCIPAL
-  // =========================================================
-
-  Widget _buildValueCard() {
+  Widget _buildValueHero() {
     return Container(
       width: double.infinity,
       padding:
           const EdgeInsets.all(
-        22,
+        23,
       ),
-      decoration: BoxDecoration(
-        color:
-            AppTheme.primary,
+      decoration:
+          BoxDecoration(
+        gradient:
+            AppTheme.premiumGradient,
         borderRadius:
             BorderRadius.circular(
-          22,
+          29,
         ),
+        border: Border.all(
+          color:
+              Colors.white.withValues(
+            alpha: 0.15,
+          ),
+        ),
+        boxShadow:
+            AppTheme.floatingShadow,
       ),
       child: Column(
         crossAxisAlignment:
@@ -422,11 +507,12 @@ class PluggyInvestmentDetailScreen
           Text(
             'Valor atual',
             style: TextStyle(
-              fontSize: 13,
-              color: Colors.white
-                  .withValues(
-                alpha: 0.7,
+              color:
+                  Colors.white
+                      .withValues(
+                alpha: 0.65,
               ),
+              fontSize: 12.5,
             ),
           ),
 
@@ -441,52 +527,77 @@ class PluggyInvestmentDetailScreen
             style:
                 const TextStyle(
               color: Colors.white,
-              fontSize: 29,
+              fontSize: 32,
               fontWeight:
                   FontWeight.w800,
-              letterSpacing: -0.6,
+              letterSpacing: -0.9,
             ),
           ),
 
-          if (_originalValue !=
-              null) ...[
+          if (_originalValue != null) ...[
             const SizedBox(
               height: 22,
             ),
 
-            Row(
-              children: [
-                Expanded(
-                  child:
-                      _buildValueDetail(
-                    'Aplicado',
-                    formatCurrency(
-                      _originalValue!,
+            Container(
+              padding:
+                  const EdgeInsets.all(
+                14,
+              ),
+              decoration:
+                  BoxDecoration(
+                color:
+                    Colors.white
+                        .withValues(
+                  alpha: 0.08,
+                ),
+                borderRadius:
+                    BorderRadius.circular(
+                  18,
+                ),
+                border: Border.all(
+                  color:
+                      Colors.white
+                          .withValues(
+                    alpha: 0.09,
+                  ),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child:
+                        _heroMetric(
+                      'Aplicado',
+                      formatCurrency(
+                        _originalValue!,
+                      ),
                     ),
                   ),
-                ),
 
-                Container(
-                  width: 1,
-                  height: 36,
-                  color: Colors.white
-                      .withValues(
-                    alpha: 0.2,
+                  Container(
+                    width: 1,
+                    height: 38,
+                    color:
+                        Colors.white
+                            .withValues(
+                      alpha: 0.14,
+                    ),
                   ),
-                ),
 
-                const SizedBox(
-                  width: 18,
-                ),
-
-                Expanded(
-                  child:
-                      _buildValueDetail(
-                    'Resultado',
-                    _formatProfit(),
+                  const SizedBox(
+                    width: 16,
                   ),
-                ),
-              ],
+
+                  Expanded(
+                    child:
+                        _heroMetric(
+                      'Resultado',
+                      _formatProfit(),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ],
@@ -494,7 +605,7 @@ class PluggyInvestmentDetailScreen
     );
   }
 
-  Widget _buildValueDetail(
+  Widget _heroMetric(
     String label,
     String value,
   ) {
@@ -505,16 +616,17 @@ class PluggyInvestmentDetailScreen
         Text(
           label,
           style: TextStyle(
-            color: Colors.white
-                .withValues(
-              alpha: 0.62,
+            color:
+                Colors.white
+                    .withValues(
+              alpha: 0.56,
             ),
-            fontSize: 11,
+            fontSize: 10.5,
           ),
         ),
 
         const SizedBox(
-          height: 4,
+          height: 5,
         ),
 
         Text(
@@ -525,7 +637,7 @@ class PluggyInvestmentDetailScreen
           style:
               const TextStyle(
             color: Colors.white,
-            fontSize: 14,
+            fontSize: 13.5,
             fontWeight:
                 FontWeight.w700,
           ),
@@ -542,7 +654,7 @@ class PluggyInvestmentDetailScreen
         _profitPercentage;
 
     if (profit == null) {
-      return '-';
+      return '—';
     }
 
     final money =
@@ -558,37 +670,21 @@ class PluggyInvestmentDetailScreen
             : '';
 
     return '$money '
-        '($prefix${percentage.toStringAsFixed(2).replaceAll('.', ',')}%)';
+        '($prefix'
+        '${percentage.toStringAsFixed(2).replaceAll('.', ',')}%)';
   }
 
   // =========================================================
   // RENTABILIDADE
   // =========================================================
 
-  bool get _hasRateInfo {
-    return _contractedRate != null ||
-        investment[
-                'annualRate'] !=
-            null ||
-        investment[
-                'lastMonthRate'] !=
-            null ||
-        investment[
-                'lastTwelveMonthsRate'] !=
-            null;
-  }
-
   Widget _buildRateCard() {
     final rows =
         <Widget>[];
 
-    // =====================================================
-    // TAXA CONTRATADA
-    // =====================================================
-
     if (_contractedRate != null) {
       rows.add(
-        _buildInfoRow(
+        _infoRow(
           'Taxa contratada',
           _contractedRate!,
           highlight: true,
@@ -596,33 +692,24 @@ class PluggyInvestmentDetailScreen
       );
     }
 
-    // =====================================================
-    // RENTABILIDADES INFORMADAS PELA PLUGGY
-    // =====================================================
-
-    if (investment[
-            'annualRate'] !=
-        null) {
+    if (investment['annualRate'] != null) {
       rows.add(
-        _buildInfoRow(
+        _infoRow(
           'Rentabilidade anual',
           _formatPercent(
-            investment[
-                'annualRate'],
+            investment['annualRate'],
           ),
         ),
       );
     }
 
-    if (investment[
-            'lastMonthRate'] !=
+    if (investment['lastMonthRate'] !=
         null) {
       rows.add(
-        _buildInfoRow(
+        _infoRow(
           'Último mês',
           _formatPercent(
-            investment[
-                'lastMonthRate'],
+            investment['lastMonthRate'],
           ),
         ),
       );
@@ -632,7 +719,7 @@ class PluggyInvestmentDetailScreen
             'lastTwelveMonthsRate'] !=
         null) {
       rows.add(
-        _buildInfoRow(
+        _infoRow(
           'Últimos 12 meses',
           _formatPercent(
             investment[
@@ -642,8 +729,8 @@ class PluggyInvestmentDetailScreen
       );
     }
 
-    return _buildWhiteCard(
-      children: rows,
+    return _glassRows(
+      rows,
     );
   }
 
@@ -660,15 +747,12 @@ class PluggyInvestmentDetailScreen
       dynamic value,
     ) {
       if (value == null ||
-          value
-              .toString()
-              .trim()
-              .isEmpty) {
+          value.toString().trim().isEmpty) {
         return;
       }
 
       rows.add(
-        _buildInfoRow(
+        _infoRow(
           label,
           value.toString(),
         ),
@@ -705,30 +789,24 @@ class PluggyInvestmentDetailScreen
       investment['isin'],
     );
 
-    final quantity =
-        investment['quantity'];
-
-    if (quantity != null) {
+    if (investment['quantity'] != null) {
       rows.add(
-        _buildInfoRow(
+        _infoRow(
           'Quantidade',
           _formatNumber(
-            quantity,
+            investment['quantity'],
           ),
         ),
       );
     }
 
-    final unitValue =
-        investment['value'];
-
-    if (unitValue != null) {
+    if (investment['value'] != null) {
       rows.add(
-        _buildInfoRow(
+        _infoRow(
           'Valor unitário',
           formatCurrency(
             _asDouble(
-              unitValue,
+              investment['value'],
             ),
           ),
         ),
@@ -737,40 +815,34 @@ class PluggyInvestmentDetailScreen
 
     add(
       'Moeda',
-      investment[
-          'currencyCode'],
+      investment['currencyCode'],
     );
 
-    final taxExempt =
-        investment['taxExempt'];
-
-    if (taxExempt != null) {
+    if (investment['taxExempt'] != null) {
       rows.add(
-        _buildInfoRow(
+        _infoRow(
           'Isento de IR',
-          taxExempt == true
+          investment['taxExempt'] == true
               ? 'Sim'
               : 'Não',
         ),
       );
     }
 
-    final status =
-        investment['status'];
-
-    if (status != null) {
+    if (investment['status'] != null) {
       rows.add(
-        _buildInfoRow(
+        _infoRow(
           'Status',
           _friendlyStatus(
-            status.toString(),
+            investment['status']
+                .toString(),
           ),
         ),
       );
     }
 
-    return _buildWhiteCard(
-      children: rows,
+    return _glassRows(
+      rows,
     );
   }
 
@@ -778,26 +850,11 @@ class PluggyInvestmentDetailScreen
   // DATAS
   // =========================================================
 
-  bool get _hasDates {
-    return investment[
-                'purchaseDate'] !=
-            null ||
-        investment[
-                'issueDate'] !=
-            null ||
-        investment[
-                'dueDate'] !=
-            null ||
-        investment[
-                'gracePeriodDate'] !=
-            null;
-  }
-
   Widget _buildDatesCard() {
     final rows =
         <Widget>[];
 
-    void addDate(
+    void add(
       String label,
       dynamic value,
     ) {
@@ -806,39 +863,35 @@ class PluggyInvestmentDetailScreen
       }
 
       rows.add(
-        _buildInfoRow(
+        _infoRow(
           label,
           _formatDate(value),
         ),
       );
     }
 
-    addDate(
+    add(
       'Data da aplicação',
-      investment[
-          'purchaseDate'],
+      investment['purchaseDate'],
     );
 
-    addDate(
+    add(
       'Data de emissão',
-      investment[
-          'issueDate'],
+      investment['issueDate'],
     );
 
-    addDate(
+    add(
       'Carência',
-      investment[
-          'gracePeriodDate'],
+      investment['gracePeriodDate'],
     );
 
-    addDate(
+    add(
       'Vencimento',
-      investment[
-          'dueDate'],
+      investment['dueDate'],
     );
 
-    return _buildWhiteCard(
-      children: rows,
+    return _glassRows(
+      rows,
     );
   }
 
@@ -846,57 +899,40 @@ class PluggyInvestmentDetailScreen
   // IMPOSTOS
   // =========================================================
 
-  bool get _hasTaxes {
-    return investment['taxes'] !=
-            null ||
-        investment['taxes2'] !=
-            null ||
-        investment[
-                'amountWithdrawal'] !=
-            null;
-  }
-
   Widget _buildTaxesCard() {
     final rows =
         <Widget>[];
 
-    if (investment[
-            'taxes'] !=
-        null) {
+    if (investment['taxes'] != null) {
       rows.add(
-        _buildInfoRow(
+        _infoRow(
           'Impostos',
           formatCurrency(
             _asDouble(
-              investment[
-                  'taxes'],
+              investment['taxes'],
             ),
           ),
         ),
       );
     }
 
-    if (investment[
-            'taxes2'] !=
-        null) {
+    if (investment['taxes2'] != null) {
       rows.add(
-        _buildInfoRow(
+        _infoRow(
           'Outros impostos',
           formatCurrency(
             _asDouble(
-              investment[
-                  'taxes2'],
+              investment['taxes2'],
             ),
           ),
         ),
       );
     }
 
-    if (investment[
-            'amountWithdrawal'] !=
+    if (investment['amountWithdrawal'] !=
         null) {
       rows.add(
-        _buildInfoRow(
+        _infoRow(
           'Valor líquido para resgate',
           formatCurrency(
             _asDouble(
@@ -908,60 +944,8 @@ class PluggyInvestmentDetailScreen
       );
     }
 
-    return _buildWhiteCard(
-      children: rows,
-    );
-  }
-
-  // =========================================================
-  // AVISO DE SINCRONIZAÇÃO
-  // =========================================================
-
-  Widget _buildSyncNotice() {
-    return Container(
-      width: double.infinity,
-      padding:
-          const EdgeInsets.all(
-        15,
-      ),
-      decoration: BoxDecoration(
-        color: AppTheme.primary
-            .withValues(
-          alpha: 0.06,
-        ),
-        borderRadius:
-            BorderRadius.circular(
-          15,
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-        children: [
-          const Icon(
-            Icons.sync_rounded,
-            size: 19,
-            color:
-                AppTheme.primary,
-          ),
-
-          const SizedBox(
-            width: 10,
-          ),
-
-          Expanded(
-            child: Text(
-              'As informações deste investimento são sincronizadas automaticamente pela instituição conectada.',
-              style: TextStyle(
-                fontSize: 12,
-                height: 1.4,
-                color: Colors
-                    .grey.shade700,
-              ),
-            ),
-          ),
-        ],
-      ),
+    return _glassRows(
+      rows,
     );
   }
 
@@ -969,34 +953,25 @@ class PluggyInvestmentDetailScreen
   // COMPONENTES
   // =========================================================
 
-  Widget _buildWhiteCard({
-    required List<Widget> children,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 18,
-        vertical: 4,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(
-          18,
+  Widget _glassRows(
+    List<Widget> rows,
+  ) {
+    return FinanceGlassCard(
+      radius: 23,
+      child: Padding(
+        padding:
+            const EdgeInsets.symmetric(
+          horizontal: 17,
+          vertical: 3,
         ),
-        border: Border.all(
-          color:
-              Colors.grey.shade200,
+        child: Column(
+          children: rows,
         ),
-      ),
-      child: Column(
-        children: children,
       ),
     );
   }
 
-  Widget _buildInfoRow(
+  Widget _infoRow(
     String label,
     String value, {
     bool highlight = false,
@@ -1004,13 +979,19 @@ class PluggyInvestmentDetailScreen
     return Container(
       padding:
           const EdgeInsets.symmetric(
-        vertical: 15,
+        vertical: 14,
       ),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
+      decoration:
+          BoxDecoration(
+        border:
+            Border(
+          bottom:
+              BorderSide(
             color:
-                Colors.grey.shade100,
+                AppTheme.line
+                    .withValues(
+              alpha: 0.6,
+            ),
           ),
         ),
       ),
@@ -1022,15 +1003,15 @@ class PluggyInvestmentDetailScreen
             child: Text(
               label,
               style: TextStyle(
-                color: highlight
-                    ? Colors
-                        .grey.shade700
-                    : Colors
-                        .grey.shade500,
-                fontSize: 13,
-                fontWeight: highlight
-                    ? FontWeight.w600
-                    : FontWeight.w400,
+                color:
+                    highlight
+                        ? AppTheme.ink
+                        : AppTheme.inkSoft,
+                fontSize: 11.5,
+                fontWeight:
+                    highlight
+                        ? FontWeight.w600
+                        : FontWeight.w400,
               ),
             ),
           ),
@@ -1045,15 +1026,18 @@ class PluggyInvestmentDetailScreen
               textAlign:
                   TextAlign.right,
               style: TextStyle(
-                fontSize: highlight
-                    ? 15
-                    : 13,
-                fontWeight: highlight
-                    ? FontWeight.w800
-                    : FontWeight.w600,
-                color: highlight
-                    ? AppTheme.primary
-                    : null,
+                color:
+                    highlight
+                        ? AppTheme.primary
+                        : AppTheme.ink,
+                fontSize:
+                    highlight
+                        ? 13.5
+                        : 11.5,
+                fontWeight:
+                    highlight
+                        ? FontWeight.w800
+                        : FontWeight.w600,
               ),
             ),
           ),
@@ -1062,91 +1046,39 @@ class PluggyInvestmentDetailScreen
     );
   }
 
-  Widget _buildSectionTitle(
-    String title,
-  ) {
-    return Text(
-      title,
-      style:
-          const TextStyle(
-        fontSize: 17,
-        fontWeight:
-            FontWeight.w800,
-        letterSpacing: -0.2,
-      ),
-    );
-  }
-
-  Widget _buildInvestmentIcon() {
-    final type =
-        (
-          investment['type'] ??
-              investment['subtype'] ??
-              ''
-        )
-            .toString()
-            .toUpperCase();
-
-    IconData icon;
-
-    if (type.contains(
-      'CRYPTO',
-    )) {
-      icon =
-          Icons.currency_bitcoin_rounded;
-    } else if (type.contains(
-      'ETF',
-    )) {
-      icon =
-          Icons.pie_chart_outline_rounded;
-    } else if (type.contains(
-      'STOCK',
-    )) {
-      icon =
-          Icons.show_chart_rounded;
-    } else if (type.contains(
-          'FIXED',
-        ) ||
-        type.contains(
-          'CDB',
-        ) ||
-        type.contains(
-          'LCI',
-        ) ||
-        type.contains(
-          'LCA',
-        )) {
-      icon =
-          Icons.savings_outlined;
-    } else if (type.contains(
-      'FUND',
-    )) {
-      icon =
-          Icons.account_balance_outlined;
-    } else {
-      icon =
-          Icons.trending_up_rounded;
-    }
-
-    return Container(
-      width: 52,
-      height: 52,
-      decoration:
-          BoxDecoration(
-        color: AppTheme.primary
-            .withValues(
-          alpha: 0.09,
+  Widget _buildSyncNotice() {
+    return FinanceGlassCard(
+      radius: 18,
+      child: Padding(
+        padding:
+            const EdgeInsets.all(
+          15,
         ),
-        borderRadius:
-            BorderRadius.circular(
-          16,
+        child: Row(
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+          children: [
+            const FinanceIconBubble(
+              icon: Icons.sync_rounded,
+            ),
+
+            const SizedBox(
+              width: 12,
+            ),
+
+            const Expanded(
+              child: Text(
+                'As informações deste investimento são sincronizadas automaticamente pela instituição conectada.',
+                style: TextStyle(
+                  color:
+                      AppTheme.inkSoft,
+                  fontSize: 11.5,
+                  height: 1.45,
+                ),
+              ),
+            ),
+          ],
         ),
-      ),
-      child: Icon(
-        icon,
-        color:
-            AppTheme.primary,
-        size: 24,
       ),
     );
   }
@@ -1163,7 +1095,7 @@ class PluggyInvestmentDetailScreen
     }
 
     return double.tryParse(
-          value.toString(),
+          value?.toString() ?? '',
         ) ??
         0;
   }
@@ -1180,7 +1112,10 @@ class PluggyInvestmentDetailScreen
 
     return value
         .toStringAsFixed(2)
-        .replaceAll('.', ',');
+        .replaceAll(
+          '.',
+          ',',
+        );
   }
 
   String _formatNumber(
@@ -1232,15 +1167,9 @@ class PluggyInvestmentDetailScreen
         value.toString(),
       ).toLocal();
 
-      final day = date.day
-          .toString()
-          .padLeft(2, '0');
-
-      final month = date.month
-          .toString()
-          .padLeft(2, '0');
-
-      return '$day/$month/${date.year}';
+      return '${date.day.toString().padLeft(2, '0')}/'
+          '${date.month.toString().padLeft(2, '0')}/'
+          '${date.year}';
     } catch (_) {
       return value.toString();
     }
@@ -1249,8 +1178,7 @@ class PluggyInvestmentDetailScreen
   String _friendlyStatus(
     String status,
   ) {
-    switch (
-        status.toUpperCase()) {
+    switch (status.toUpperCase()) {
       case 'ACTIVE':
         return 'Ativo';
 
@@ -1271,8 +1199,7 @@ class PluggyInvestmentDetailScreen
   String _friendlyType(
     String value,
   ) {
-    switch (
-        value.toUpperCase()) {
+    switch (value.toUpperCase()) {
       case 'CDB':
         return 'CDB';
 
@@ -1312,9 +1239,7 @@ class PluggyInvestmentDetailScreen
                       ? ''
                       : word[0]
                               .toUpperCase() +
-                          word.substring(
-                            1,
-                          ),
+                          word.substring(1),
             )
             .join(' ');
     }

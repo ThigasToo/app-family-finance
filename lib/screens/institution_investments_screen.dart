@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
+import '../widgets/finance_ui.dart';
 
 import 'edit_investment_screen.dart';
 import 'pluggy_investment_detail_screen.dart';
+
 
 class InstitutionInvestmentsScreen
     extends StatefulWidget {
@@ -23,8 +25,10 @@ class InstitutionInvestmentsScreen
           _InstitutionInvestmentsScreenState();
 }
 
+
 class _InstitutionInvestmentsScreenState
-    extends State<InstitutionInvestmentsScreen> {
+    extends State<
+        InstitutionInvestmentsScreen> {
   late List<dynamic> _investments;
 
   @override
@@ -38,7 +42,7 @@ class _InstitutionInvestmentsScreenState
   }
 
   // =========================================================
-  // TOTAL
+  // TOTAIS
   // =========================================================
 
   double get _totalValue {
@@ -46,7 +50,8 @@ class _InstitutionInvestmentsScreenState
 
     for (final investment
         in _investments) {
-      total += _getInvestmentValue(
+      total +=
+          _getInvestmentValue(
         investment,
       );
     }
@@ -54,25 +59,25 @@ class _InstitutionInvestmentsScreenState
     return total;
   }
 
-  int get _manualCount {
-    return _investments
-        .where(
-          (investment) =>
-              investment['source'] ==
-              'MANUAL',
-        )
-        .length;
-  }
+  int get _manualCount =>
+      _investments
+          .where(
+            (investment) =>
+                investment[
+                    'source'] ==
+                'MANUAL',
+          )
+          .length;
 
-  int get _syncedCount {
-    return _investments
-        .where(
-          (investment) =>
-              investment['source'] ==
-              'PLUGGY',
-        )
-        .length;
-  }
+  int get _syncedCount =>
+      _investments
+          .where(
+            (investment) =>
+                investment[
+                    'source'] ==
+                'PLUGGY',
+          )
+          .length;
 
   // =========================================================
   // HELPERS
@@ -90,7 +95,10 @@ class _InstitutionInvestmentsScreenState
       return value.toDouble();
     }
 
-    return 0;
+    return double.tryParse(
+          value?.toString() ?? '',
+        ) ??
+        0;
   }
 
   String _getInvestmentName(
@@ -147,8 +155,7 @@ class _InstitutionInvestmentsScreenState
   String _friendlyType(
     String value,
   ) {
-    switch (
-        value.toUpperCase()) {
+    switch (value.toUpperCase()) {
       case 'CRYPTO':
         return 'Criptomoeda';
 
@@ -224,8 +231,39 @@ class _InstitutionInvestmentsScreenState
         .toUpperCase();
   }
 
+  IconData _investmentIcon(
+    dynamic investment,
+  ) {
+    final type =
+        '${investment['type'] ?? ''} '
+                '${investment['subtype'] ?? ''}'
+            .toUpperCase();
+
+    if (type.contains('CRYPTO')) {
+      return Icons
+          .currency_bitcoin_rounded;
+    }
+
+    if (type.contains('FIXED') ||
+        type.contains('CDB') ||
+        type.contains('LCI') ||
+        type.contains('LCA')) {
+      return Icons
+          .account_balance_rounded;
+    }
+
+    if (type.contains('ETF') ||
+        type.contains('STOCK')) {
+      return Icons
+          .show_chart_rounded;
+    }
+
+    return Icons
+        .trending_up_rounded;
+  }
+
   // =========================================================
-  // ABRIR INVESTIMENTO
+  // ABRIR
   // =========================================================
 
   Future<void> _openInvestment(
@@ -234,10 +272,6 @@ class _InstitutionInvestmentsScreenState
     final isManual =
         investment['source'] ==
             'MANUAL';
-
-    // =====================================================
-    // INVESTIMENTO PLUGGY
-    // =====================================================
 
     if (!isManual) {
       await Navigator.of(
@@ -256,10 +290,6 @@ class _InstitutionInvestmentsScreenState
 
       return;
     }
-
-    // =====================================================
-    // INVESTIMENTO MANUAL
-    // =====================================================
 
     final result =
         await Navigator.of(
@@ -296,8 +326,6 @@ class _InstitutionInvestmentsScreenState
           content: Text(
             'Investimento excluído.',
           ),
-          behavior:
-              SnackBarBehavior.floating,
         ),
       );
 
@@ -305,12 +333,11 @@ class _InstitutionInvestmentsScreenState
     }
 
     if (result == true) {
-      if (Navigator.of(
-        context,
-      ).canPop()) {
-        Navigator.of(
-          context,
-        ).pop(true);
+      if (Navigator.of(context)
+          .canPop()) {
+        Navigator.of(context).pop(
+          true,
+        );
       }
     }
   }
@@ -334,28 +361,67 @@ class _InstitutionInvestmentsScreenState
       ),
     );
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
+    return FinancePage(
+      title:
           widget.institutionName,
-        ),
-      ),
-      body: ListView(
+      child: ListView(
+        physics:
+            const AlwaysScrollableScrollPhysics(),
         padding:
             const EdgeInsets.fromLTRB(
           20,
           8,
           20,
-          32,
+          36,
         ),
         children: [
-          _buildSummaryCard(),
+          FinanceHeroCard(
+            label:
+                'Investido em ${widget.institutionName}',
+            value:
+                _totalValue,
+            details: [
+              FinanceHeroInfo(
+                icon:
+                    Icons
+                        .pie_chart_rounded,
+                text:
+                    '${_investments.length} '
+                    '${_investments.length == 1 ? 'ativo' : 'ativos'}',
+              ),
+
+              if (_syncedCount > 0)
+                FinanceHeroInfo(
+                  icon:
+                      Icons
+                          .sync_rounded,
+                  text:
+                      '$_syncedCount sincronizado'
+                      '${_syncedCount == 1 ? '' : 's'}',
+                ),
+
+              if (_manualCount > 0)
+                FinanceHeroInfo(
+                  icon:
+                      Icons
+                          .edit_rounded,
+                  text:
+                      '$_manualCount manual'
+                      '${_manualCount == 1 ? '' : 'is'}',
+                ),
+            ],
+          ),
 
           const SizedBox(
             height: 30,
           ),
 
-          _buildSectionHeader(),
+          FinanceSectionHeader(
+            title:
+                'Seus investimentos',
+            trailing:
+                '${_investments.length}',
+          ),
 
           const SizedBox(
             height: 12,
@@ -363,7 +429,15 @@ class _InstitutionInvestmentsScreenState
 
           if (sortedInvestments
               .isEmpty)
-            _buildEmptyState()
+            const FinanceEmptyState(
+              icon:
+                  Icons
+                      .show_chart_rounded,
+              title:
+                  'Nenhum investimento',
+              subtitle:
+                  'Não há investimentos disponíveis nesta instituição.',
+            )
           else
             ...sortedInvestments.map(
               (investment) =>
@@ -373,147 +447,6 @@ class _InstitutionInvestmentsScreenState
             ),
         ],
       ),
-    );
-  }
-
-  // =========================================================
-  // SUMMARY
-  // =========================================================
-
-  Widget _buildSummaryCard() {
-    return Container(
-      width: double.infinity,
-      padding:
-          const EdgeInsets.all(
-        24,
-      ),
-      decoration: BoxDecoration(
-        color:
-            AppTheme.primary,
-        borderRadius:
-            BorderRadius.circular(
-          24,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Investido em ${widget.institutionName}',
-            style: TextStyle(
-              color: Colors.white
-                  .withValues(
-                alpha: 0.76,
-              ),
-              fontSize: 14,
-              fontWeight:
-                  FontWeight.w500,
-            ),
-          ),
-
-          const SizedBox(
-            height: 8,
-          ),
-
-          Text(
-            formatCurrency(
-              _totalValue,
-            ),
-            style:
-                const TextStyle(
-              color: Colors.white,
-              fontSize: 31,
-              fontWeight:
-                  FontWeight.w800,
-              letterSpacing: -0.8,
-            ),
-          ),
-
-          const SizedBox(
-            height: 20,
-          ),
-
-          Row(
-            children: [
-              Icon(
-                Icons
-                    .pie_chart_outline_rounded,
-                size: 16,
-                color: Colors.white
-                    .withValues(
-                  alpha: 0.72,
-                ),
-              ),
-
-              const SizedBox(
-                width: 6,
-              ),
-
-              Text(
-                '${_investments.length} '
-                '${_investments.length == 1 ? 'ativo' : 'ativos'}',
-                style: TextStyle(
-                  color: Colors.white
-                      .withValues(
-                    alpha: 0.72,
-                  ),
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-
-          if (_manualCount > 0 &&
-              _syncedCount > 0) ...[
-            const SizedBox(
-              height: 8,
-            ),
-
-            Text(
-              '$_syncedCount sincronizados • $_manualCount manuais',
-              style: TextStyle(
-                color: Colors.white
-                    .withValues(
-                  alpha: 0.58,
-                ),
-                fontSize: 11,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  // =========================================================
-  // SECTION
-  // =========================================================
-
-  Widget _buildSectionHeader() {
-    return Row(
-      children: [
-        const Expanded(
-          child: Text(
-            'Seus investimentos',
-            style:
-                TextStyle(
-              fontSize: 17,
-              fontWeight:
-                  FontWeight.w800,
-            ),
-          ),
-        ),
-
-        Text(
-          '${_investments.length}',
-          style: TextStyle(
-            fontSize: 13,
-            color: Colors
-                .grey.shade500,
-          ),
-        ),
-      ],
     );
   }
 
@@ -532,8 +465,7 @@ class _InstitutionInvestmentsScreenState
     final percentage =
         _totalValue <= 0
             ? 0.0
-            : value /
-                _totalValue;
+            : value / _totalValue;
 
     final isManual =
         investment['source'] ==
@@ -549,363 +481,223 @@ class _InstitutionInvestmentsScreenState
           const EdgeInsets.only(
         bottom: 12,
       ),
-      child: Material(
-        color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(
-          20,
-        ),
-        child: InkWell(
-          borderRadius:
-              BorderRadius.circular(
-            20,
+      child: FinanceGlassCard(
+        radius: 23,
+        onTap: () {
+          _openInvestment(
+            investment,
+          );
+        },
+        child: Padding(
+          padding:
+              const EdgeInsets.all(
+            17,
           ),
-          onTap: () {
-            _openInvestment(
-              investment,
-            );
-          },
-          child: Container(
-            padding:
-                const EdgeInsets.all(
-              18,
-            ),
-            decoration:
-                BoxDecoration(
-              borderRadius:
-                  BorderRadius.circular(
-                20,
-              ),
-              border: Border.all(
-                color: Colors
-                    .grey.shade200,
-              ),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  crossAxisAlignment:
-                      CrossAxisAlignment
-                          .start,
-                  children: [
-                    _buildInvestmentIcon(
+          child: Column(
+            children: [
+              Row(
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+                children: [
+                  FinanceIconBubble(
+                    icon:
+                        _investmentIcon(
                       investment,
                     ),
+                  ),
 
-                    const SizedBox(
-                      width: 14,
-                    ),
+                  const SizedBox(
+                    width: 14,
+                  ),
 
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment
-                                .start,
-                        children: [
-                          Text(
-                            _getInvestmentName(
-                              investment,
-                            ),
-                            maxLines: 2,
-                            overflow:
-                                TextOverflow
-                                    .ellipsis,
-                            style:
-                                const TextStyle(
-                              fontSize: 14,
-                              height: 1.25,
-                              fontWeight:
-                                  FontWeight
-                                      .w700,
-                            ),
-                          ),
-
-                          const SizedBox(
-                            height: 5,
-                          ),
-
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  _getInvestmentType(
-                                    investment,
-                                  ),
-                                  overflow:
-                                      TextOverflow
-                                          .ellipsis,
-                                  style:
-                                      TextStyle(
-                                    fontSize: 12,
-                                    color: Colors
-                                        .grey
-                                        .shade500,
-                                  ),
-                                ),
-                              ),
-
-                              if (ticker !=
-                                  null) ...[
-                                const SizedBox(
-                                  width: 7,
-                                ),
-
-                                Text(
-                                  '• $ticker',
-                                  style:
-                                      TextStyle(
-                                    fontSize: 12,
-                                    color: Colors
-                                        .grey
-                                        .shade500,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-
-                          if (isManual) ...[
-                            const SizedBox(
-                              height: 7,
-                            ),
-
-                            _buildManualBadge(),
-                          ],
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(
-                      width: 10,
-                    ),
-
-                    Column(
+                  Expanded(
+                    child: Column(
                       crossAxisAlignment:
                           CrossAxisAlignment
-                              .end,
+                              .start,
                       children: [
                         Text(
-                          formatCurrency(
-                            value,
+                          _getInvestmentName(
+                            investment,
                           ),
+                          maxLines: 2,
+                          overflow:
+                              TextOverflow
+                                  .ellipsis,
                           style:
                               const TextStyle(
-                            fontSize: 16,
+                            color:
+                                AppTheme.ink,
+                            fontSize: 14,
+                            height: 1.25,
                             fontWeight:
                                 FontWeight
-                                    .w800,
+                                    .w700,
                           ),
                         ),
 
                         const SizedBox(
-                          height: 4,
+                          height: 5,
                         ),
 
                         Text(
-                          '${(percentage * 100).toStringAsFixed(1)}%',
+                          ticker != null
+                              ? '${_getInvestmentType(investment)} • $ticker'
+                              : _getInvestmentType(
+                                  investment,
+                                ),
+                          maxLines: 1,
+                          overflow:
+                              TextOverflow
+                                  .ellipsis,
                           style:
-                              TextStyle(
-                            fontSize: 12,
-                            color: Colors
-                                .grey
-                                .shade500,
+                              const TextStyle(
+                            color:
+                                AppTheme
+                                    .inkSoft,
+                            fontSize: 11.5,
                           ),
                         ),
+
+                        if (isManual) ...[
+                          const SizedBox(
+                            height: 7,
+                          ),
+                          Container(
+                            padding:
+                                const EdgeInsets
+                                    .symmetric(
+                              horizontal:
+                                  8,
+                              vertical:
+                                  4,
+                            ),
+                            decoration:
+                                BoxDecoration(
+                              color:
+                                  AppTheme
+                                      .primary
+                                      .withValues(
+                                alpha:
+                                    0.08,
+                              ),
+                              borderRadius:
+                                  BorderRadius
+                                      .circular(
+                                8,
+                              ),
+                            ),
+                            child:
+                                const Text(
+                              'Manual',
+                              style:
+                                  TextStyle(
+                                color:
+                                    AppTheme
+                                        .primary,
+                                fontSize:
+                                    9.5,
+                                fontWeight:
+                                    FontWeight
+                                        .w700,
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
-
-                    const SizedBox(
-                      width: 3,
-                    ),
-
-                    Icon(
-                      isManual
-                          ? Icons
-                              .edit_outlined
-                          : Icons
-                              .chevron_right_rounded,
-                      size: isManual
-                          ? 20
-                          : 25,
-                      color: Colors
-                          .grey.shade400,
-                    ),
-                  ],
-                ),
-
-                const SizedBox(
-                  height: 16,
-                ),
-
-                ClipRRect(
-                  borderRadius:
-                      BorderRadius.circular(
-                    20,
                   ),
-                  child:
-                      LinearProgressIndicator(
-                    value: percentage
-                        .clamp(
-                      0.0,
-                      1.0,
-                    ),
-                    minHeight: 4,
-                    backgroundColor:
-                        AppTheme.primary
-                            .withValues(
-                      alpha: 0.08,
-                    ),
-                    valueColor:
-                        const AlwaysStoppedAnimation<
-                            Color>(
-                      AppTheme.primary,
-                    ),
+
+                  const SizedBox(
+                    width: 10,
+                  ),
+
+                  Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        formatCurrency(
+                          value,
+                        ),
+                        style:
+                            const TextStyle(
+                          color:
+                              AppTheme.ink,
+                          fontSize: 15.5,
+                          fontWeight:
+                              FontWeight
+                                  .w800,
+                        ),
+                      ),
+                      const SizedBox(
+                        height: 4,
+                      ),
+                      Text(
+                        '${(percentage * 100).toStringAsFixed(1)}%',
+                        style:
+                            const TextStyle(
+                          color:
+                              AppTheme
+                                  .inkSoft,
+                          fontSize: 10.5,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(
+                    width: 6,
+                  ),
+
+                  Icon(
+                    isManual
+                        ? Icons
+                            .edit_rounded
+                        : Icons
+                            .chevron_right_rounded,
+                    color:
+                        AppTheme.inkSoft,
+                    size:
+                        isManual
+                            ? 18
+                            : 24,
+                  ),
+                ],
+              ),
+
+              const SizedBox(
+                height: 15,
+              ),
+
+              ClipRRect(
+                borderRadius:
+                    BorderRadius.circular(
+                  20,
+                ),
+                child:
+                    LinearProgressIndicator(
+                  value:
+                      percentage.clamp(
+                    0.0,
+                    1.0,
+                  ),
+                  minHeight: 4.5,
+                  backgroundColor:
+                      AppTheme.primary
+                          .withValues(
+                    alpha: 0.07,
+                  ),
+                  valueColor:
+                      const AlwaysStoppedAnimation<
+                          Color>(
+                    AppTheme.primary,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildManualBadge() {
-    return Container(
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 4,
-      ),
-      decoration: BoxDecoration(
-        color: AppTheme.primary
-            .withValues(
-          alpha: 0.08,
-        ),
-        borderRadius:
-            BorderRadius.circular(
-          8,
-        ),
-      ),
-      child:
-          const Text(
-        'Manual',
-        style: TextStyle(
-          color:
-              AppTheme.primary,
-          fontSize: 10,
-          fontWeight:
-              FontWeight.w700,
-        ),
-      ),
-    );
-  }
-
-  // =========================================================
-  // ICON
-  // =========================================================
-
-  Widget _buildInvestmentIcon(
-    dynamic investment,
-  ) {
-    final type =
-        (
-          investment['type'] ??
-              investment['subtype'] ??
-              ''
-        )
-            .toString()
-            .toUpperCase();
-
-    IconData icon;
-
-    if (type.contains(
-      'CRYPTO',
-    )) {
-      icon =
-          Icons.currency_bitcoin_rounded;
-    } else if (type.contains(
-      'ETF',
-    )) {
-      icon =
-          Icons.pie_chart_outline_rounded;
-    } else if (type.contains(
-      'STOCK',
-    )) {
-      icon =
-          Icons.show_chart_rounded;
-    } else if (type.contains(
-          'FIXED',
-        ) ||
-        type.contains(
-          'CDB',
-        ) ||
-        type.contains(
-          'LCI',
-        ) ||
-        type.contains(
-          'LCA',
-        )) {
-      icon =
-          Icons.savings_outlined;
-    } else if (type.contains(
-      'FUND',
-    )) {
-      icon =
-          Icons.account_balance_outlined;
-    } else {
-      icon =
-          Icons.trending_up_rounded;
-    }
-
-    return Container(
-      width: 46,
-      height: 46,
-      decoration:
-          BoxDecoration(
-        color: AppTheme.primary
-            .withValues(
-          alpha: 0.09,
-        ),
-        borderRadius:
-            BorderRadius.circular(
-          14,
-        ),
-      ),
-      child: Icon(
-        icon,
-        size: 22,
-        color:
-            AppTheme.primary,
-      ),
-    );
-  }
-
-  // =========================================================
-  // EMPTY
-  // =========================================================
-
-  Widget _buildEmptyState() {
-    return Container(
-      padding:
-          const EdgeInsets.all(
-        24,
-      ),
-      decoration:
-          BoxDecoration(
-        color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(
-          18,
-        ),
-        border: Border.all(
-          color:
-              Colors.grey.shade200,
-        ),
-      ),
-      child:
-          const Text(
-        'Nenhum investimento nesta instituição.',
       ),
     );
   }
