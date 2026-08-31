@@ -403,6 +403,7 @@ class FinanceListTile extends StatelessWidget {
   final double value;
   final IconData? icon;
   final String? initials;
+  final String? institutionName;
   final String? trailingText;
   final double? progress;
   final VoidCallback? onTap;
@@ -414,6 +415,7 @@ class FinanceListTile extends StatelessWidget {
     required this.value,
     this.icon,
     this.initials,
+    this.institutionName,
     this.trailingText,
     this.progress,
     this.onTap,
@@ -428,10 +430,15 @@ class FinanceListTile extends StatelessWidget {
         children: [
           Row(
             children: [
-              FinanceIconBubble(
-                icon: icon,
-                initials: initials,
-              ),
+              institutionName != null
+                ? InstitutionLogo(
+                    institutionName:
+                        institutionName!,
+                  )
+                : FinanceIconBubble(
+                    icon: icon,
+                    initials: initials,
+                  ),
 
               const SizedBox(width: 14),
 
@@ -703,6 +710,382 @@ class FinanceGlowOrb extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: color.withValues(alpha: 0.25),
+        ),
+      ),
+    );
+  }
+}
+
+// ===========================================================
+// SKELETON LOADING
+// ===========================================================
+
+class FinanceSkeleton extends StatefulWidget {
+  final double? width;
+  final double height;
+  final double radius;
+
+  const FinanceSkeleton({
+    super.key,
+    this.width,
+    required this.height,
+    this.radius = 14,
+  });
+
+  @override
+  State<FinanceSkeleton> createState() =>
+      _FinanceSkeletonState();
+}
+
+
+class _FinanceSkeletonState
+    extends State<FinanceSkeleton>
+    with SingleTickerProviderStateMixin {
+
+  late final AnimationController
+      _controller;
+
+  late final Animation<double>
+      _animation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller =
+        AnimationController(
+      vsync: this,
+      duration:
+          const Duration(
+        milliseconds: 900,
+      ),
+    );
+
+    _animation =
+        Tween<double>(
+      begin: 0.35,
+      end: 0.75,
+    ).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeInOut,
+      ),
+    );
+
+    _controller.repeat(
+      reverse: true,
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+
+    super.dispose();
+  }
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return FadeTransition(
+      opacity: _animation,
+      child: Container(
+        width: widget.width,
+        height: widget.height,
+        decoration:
+            BoxDecoration(
+          color:
+              Colors.white
+                  .withValues(
+            alpha: 0.65,
+          ),
+          borderRadius:
+              BorderRadius.circular(
+            widget.radius,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+// ===========================================================
+// PAGE SKELETON
+// ===========================================================
+
+class FinancePageSkeleton
+    extends StatelessWidget {
+  const FinancePageSkeleton({
+    super.key,
+  });
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return ListView(
+      physics:
+          const AlwaysScrollableScrollPhysics(),
+      padding:
+          const EdgeInsets.fromLTRB(
+        20,
+        8,
+        20,
+        36,
+      ),
+      children: [
+        const FinanceSkeleton(
+          height: 150,
+          radius: 28,
+        ),
+
+        const SizedBox(
+          height: 30,
+        ),
+
+        const FinanceSkeleton(
+          width: 120,
+          height: 12,
+          radius: 6,
+        ),
+
+        const SizedBox(
+          height: 14,
+        ),
+
+        ...List.generate(
+          3,
+          (index) =>
+              const Padding(
+            padding:
+                EdgeInsets.only(
+              bottom: 12,
+            ),
+            child:
+                FinanceSkeleton(
+              height: 88,
+              radius: 22,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ===========================================================
+// INSTITUTION LOGO
+// ===========================================================
+
+class InstitutionLogo
+    extends StatelessWidget {
+  final String institutionName;
+
+  final double size;
+
+  const InstitutionLogo({
+    super.key,
+    required this.institutionName,
+    this.size = 48,
+  });
+
+  String _normalize(
+    String value,
+  ) {
+    return value
+        .trim()
+        .toUpperCase()
+        .replaceAll(
+          RegExp(r'[^A-Z0-9]'),
+          '',
+        );
+  }
+
+  String? get _domain {
+    final name =
+        _normalize(
+      institutionName,
+    );
+
+    if (name.contains('PICPAY')) {
+      return 'picpay.com';
+    }
+
+    if (name.contains('NUBANK')) {
+      return 'nubank.com.br';
+    }
+
+    if (name.contains('ITAU')) {
+      return 'itau.com.br';
+    }
+
+    if (name.contains('BRADESCO')) {
+      return 'bradesco.com.br';
+    }
+
+    if (name.contains('SANTANDER')) {
+      return 'santander.com.br';
+    }
+
+    if (name.contains('BANCOINTER') ||
+        name == 'INTER') {
+      return 'inter.co';
+    }
+
+    if (name.contains('BANCODOBRASIL') ||
+        name == 'BB') {
+      return 'bb.com.br';
+    }
+
+    if (name.contains('CAIXA')) {
+      return 'caixa.gov.br';
+    }
+
+    if (name.contains('C6')) {
+      return 'c6bank.com.br';
+    }
+
+    if (name.contains('BTG')) {
+      return 'btgpactual.com';
+    }
+
+    if (name.contains('XP')) {
+      return 'xp.com.br';
+    }
+
+    if (name.contains('RICO')) {
+      return 'rico.com.vc';
+    }
+
+    if (name.contains('CLEAR')) {
+      return 'clear.com.br';
+    }
+
+    if (name.contains('MERCADOPAGO')) {
+      return 'mercadopago.com.br';
+    }
+
+    if (name.contains('BINANCE')) {
+      return 'binance.com';
+    }
+
+    if (name.contains('COINBASE')) {
+      return 'coinbase.com';
+    }
+
+    return null;
+  }
+
+  String get _initials {
+    final parts =
+        institutionName
+            .trim()
+            .split(
+          RegExp(r'\s+'),
+        )
+            .where(
+          (value) =>
+              value.isNotEmpty,
+        )
+            .toList();
+
+    if (parts.isEmpty) {
+      return '?';
+    }
+
+    if (parts.length == 1) {
+      final value =
+          parts.first;
+
+      return value
+          .substring(
+            0,
+            value.length >= 2
+                ? 2
+                : 1,
+          )
+          .toUpperCase();
+    }
+
+    return '${parts.first[0]}'
+            '${parts.last[0]}'
+        .toUpperCase();
+  }
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    final domain =
+        _domain;
+
+    if (domain == null) {
+      return FinanceIconBubble(
+        initials: _initials,
+      );
+    }
+
+    final url =
+        'https://www.google.com/s2/favicons'
+        '?domain=$domain'
+        '&sz=128';
+
+    return Container(
+      width: size,
+      height: size,
+      padding:
+          const EdgeInsets.all(
+        9,
+      ),
+      decoration:
+          BoxDecoration(
+        color:
+            Colors.white
+                .withValues(
+          alpha: 0.78,
+        ),
+        borderRadius:
+            BorderRadius.circular(
+          16,
+        ),
+        border:
+            Border.all(
+          color:
+              Colors.white
+                  .withValues(
+            alpha: 0.85,
+          ),
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius:
+            BorderRadius.circular(
+          10,
+        ),
+        child: Image.network(
+          url,
+          fit: BoxFit.contain,
+          errorBuilder: (
+            context,
+            error,
+            stackTrace,
+          ) {
+            return Center(
+              child: Text(
+                _initials,
+                style:
+                    const TextStyle(
+                  color:
+                      AppTheme.primary,
+                  fontSize: 12,
+                  fontWeight:
+                      FontWeight.w800,
+                ),
+              ),
+            );
+          },
         ),
       ),
     );

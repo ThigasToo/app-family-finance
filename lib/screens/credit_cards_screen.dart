@@ -342,17 +342,7 @@ class _CreditCardsScreenState
 
   Widget _buildBody() {
     if (_isLoading) {
-      return ListView(
-        physics:
-            const AlwaysScrollableScrollPhysics(),
-        children: [
-          SizedBox(height: 220),
-          Center(
-            child:
-                CircularProgressIndicator(),
-          ),
-        ],
-      );
+      return const FinancePageSkeleton();
     }
 
     if (_errorMessage != null) {
@@ -423,10 +413,8 @@ class _CreditCardsScreenState
                   bottom: 12,
                 ),
                 child: FinanceListTile(
-                  initials:
-                      _initials(
-                    institution.name,
-                  ),
+                  institutionName:
+                      institution.name,
                   title:
                       institution.name,
                   subtitle:
