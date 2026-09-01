@@ -58,6 +58,62 @@ class FinanceService {
   }
 
   // =========================================================
+  // DETALHAMENTO MENSAL
+  // =========================================================
+
+  Future<Map<String, dynamic>>
+      getMonthlyBreakdown({
+    required String month,
+  }) async {
+    final headers =
+        await _authenticatedHeaders();
+
+    final uri = Uri.parse(
+      '${ApiConfig.baseUrl}/finance/monthly-breakdown',
+    ).replace(
+      queryParameters: {
+        'month': month,
+      },
+    );
+
+    final response =
+        await http.get(
+      uri,
+      headers: headers,
+    );
+
+    if (response.statusCode !=
+        200) {
+      String message =
+          'Erro ao buscar detalhamento do mês';
+
+      try {
+        final data =
+            jsonDecode(response.body);
+
+        if (data is Map &&
+            data['detail'] != null) {
+          message =
+              data['detail'].toString();
+        }
+      } catch (_) {}
+
+      throw Exception(message);
+    }
+
+    final data =
+        jsonDecode(response.body);
+
+    if (data is! Map<String, dynamic>) {
+      throw Exception(
+        'Resposta inválida do detalhamento mensal',
+      );
+    }
+
+    return data;
+  }
+
+  // =========================================================
   // REFRESH PLUGGY
   // =========================================================
 
