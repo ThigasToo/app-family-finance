@@ -43,9 +43,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<dynamic> _accounts = [];
   List<dynamic> _investments = [];
 
-  // Compatibilidade do backend: pix_sent_by_month contém o inverso
-  // do fluxo líquido classificado. A Home reverte o sinal abaixo.
-  Map<String, double> _monthlyCashFlowCommitment = {};
+  Map<String, double> _manualCommitmentsByMonth = {};
   Map<String, double> _cardCommitmentsByMonth = {};
 
   String? _updatedAt;
@@ -142,8 +140,8 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final summary = await _financeService.getSummary();
       final payload = summary['payload'] ?? {};
-      final cashFlowCommitment = _parseMonthlyMap(
-        payload['pix_sent_by_month'],
+      final manualByMonth = _parseMonthlyMap(
+        payload['manual_commitments_by_month'] ?? payload['pix_sent_by_month'],
       );
       final cardByMonth = _parseMonthlyMap(
         payload['credit_card_commitments_by_month'],
@@ -153,7 +151,7 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _accounts = payload['accounts'] ?? [];
         _investments = payload['investments'] ?? [];
-        _monthlyCashFlowCommitment = cashFlowCommitment;
+        _manualCommitmentsByMonth = manualByMonth;
         _cardCommitmentsByMonth = cardByMonth;
         _updatedAt = summary['updated_at'];
         _isLoading = false;
@@ -270,6 +268,10 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+
+    if (mounted) {
+      await _loadSummary();
+    }
   }
 
   Future<void> _handleRefresh() async {
@@ -348,18 +350,13 @@ class _HomeScreenState extends State<HomeScreen> {
   double get _expectedIncome => _expectedSalary + _expectedReceipts;
   double get _cardSelectedMonth =>
       _cardCommitmentsByMonth[_selectedMonthKey] ?? 0;
-  double get _cashFlowSelectedMonth =>
-      -(_monthlyCashFlowCommitment[_selectedMonthKey] ?? 0);
-  double get _positiveCashFlowSelectedMonth =>
-      _cashFlowSelectedMonth > 0 ? _cashFlowSelectedMonth : 0;
-  double get _negativeCashFlowSelectedMonth =>
-      _cashFlowSelectedMonth < 0 ? -_cashFlowSelectedMonth : 0;
-  double get _receivableSelectedMonth =>
-      _expectedIncome + _positiveCashFlowSelectedMonth;
+  double get _manualCommitmentSelectedMonth =>
+      _manualCommitmentsByMonth[_selectedMonthKey] ?? 0;
+  double get _receivableSelectedMonth => _expectedIncome;
   double get _committedSelectedMonth =>
-      _cardSelectedMonth + _negativeCashFlowSelectedMonth;
+      _cardSelectedMonth + _manualCommitmentSelectedMonth;
   double get _availableSelectedMonth =>
-      _expectedIncome + _cashFlowSelectedMonth - _cardSelectedMonth;
+      _expectedIncome - _committedSelectedMonth;
 
   String get _firstName {
     final name = _user?.name.trim();
@@ -470,7 +467,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                   ),
                   const SizedBox(height: 30),
-                  _buildSectionTitle('Compromissos e fluxo do mês'),
+                  _buildSectionTitle('Compromissos do mês'),
                   const SizedBox(height: 12),
                   _buildFinancialCard(
                     icon: Icons.credit_card_rounded,
@@ -485,12 +482,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 12),
                   _buildFinancialCard(
-                    icon: Icons.swap_vert_circle_rounded,
-                    title: 'Fluxo de caixa em $_selectedMonthName',
-                    value: _cashFlowSelectedMonth,
+                    icon: Icons.pix_rounded,
+                    title: 'Movimentações em $_selectedMonthName',
+                    value: _manualCommitmentSelectedMonth,
                     subtitle:
-                        'Entradas, saídas, aplicações e resgates de investimentos',
-                    automatic: true,
+                        'Valor comprometido definido manualmente a partir das movimentações',
                     onTap: () => _openMonthlyCalculation(
                       MonthlyCalculationType.pix,
                     ),
