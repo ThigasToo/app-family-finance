@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../services/finance_service.dart';
 import '../services/privacy_service.dart';
@@ -112,37 +111,32 @@ class _MonthlyCalculationDetailScreenState
         .toList();
   }
 
-  double get _total {
-    final value = _section['total'];
-
-    if (value is num) {
-      return value.toDouble();
-    }
-
-    return double.tryParse(
-          value?.toString() ?? '',
-        ) ??
-        0;
+  double _number(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '') ?? 0;
   }
+
+  double get _total => _number(_section['total']);
+  double get _pixSent => _number(_section['sent_total']);
+  double get _pixReceived => _number(_section['received_total']);
+  double get _pixNet => _number(_section['net']);
 
   int get _count {
     final value = _section['count'];
-
     if (value is int) return value;
     if (value is num) return value.toInt();
-
     return _items.length;
   }
 
   String get _title =>
       widget.type == MonthlyCalculationType.creditCards
           ? 'Cartões do mês'
-          : 'PIX enviados';
+          : 'Movimentações PIX';
 
   String get _subtitle =>
       widget.type == MonthlyCalculationType.creditCards
-          ? 'Compras e parcelas consideradas no cálculo automático'
-          : 'Movimentações PIX consideradas no cálculo automático';
+          ? 'Ciclo do dia 5 deste mês até antes do dia 5 do mês seguinte'
+          : 'Entradas e saídas PIX de todas as contas conectadas';
 
   IconData get _icon =>
       widget.type == MonthlyCalculationType.creditCards
@@ -155,26 +149,14 @@ class _MonthlyCalculationDetailScreenState
         : '••••••';
   }
 
-  double _itemAmount(Map<String, dynamic> item) {
-    final value = item['amount'];
-
-    if (value is num) {
-      return value.toDouble();
-    }
-
-    return double.tryParse(
-          value?.toString() ?? '',
-        ) ??
-        0;
-  }
-
   String _formatDate(dynamic value) {
     if (value == null) return 'Data não informada';
 
     try {
       final date = DateTime.parse(value.toString());
-      return DateFormat('dd/MM/yyyy', 'pt_BR')
-          .format(date);
+      final day = date.day.toString().padLeft(2, '0');
+      final month = date.month.toString().padLeft(2, '0');
+      return '$day/$month/${date.year}';
     } catch (_) {
       return value.toString();
     }
@@ -192,6 +174,9 @@ class _MonthlyCalculationDetailScreenState
 
     return 'Parcela $current/$total';
   }
+
+  bool _isPixOut(Map<String, dynamic> item) =>
+      item['direction']?.toString().toUpperCase() == 'OUT';
 
   @override
   Widget build(BuildContext context) {
@@ -243,9 +228,7 @@ class _MonthlyCalculationDetailScreenState
               const SizedBox(height: 18),
               FilledButton.icon(
                 onPressed: _load,
-                icon: const Icon(
-                  Icons.refresh_rounded,
-                ),
+                icon: const Icon(Icons.refresh_rounded),
                 label: const Text('Tentar novamente'),
               ),
             ],
@@ -265,11 +248,11 @@ class _MonthlyCalculationDetailScreenState
           _buildSummaryCard(),
           const SizedBox(height: 22),
           Text(
-            'LANÇAMENTOS CONSIDERADOS',
+            widget.type == MonthlyCalculationType.creditCards
+                ? 'LANÇAMENTOS DA FATURA'
+                : 'MOVIMENTAÇÕES PIX',
             style: TextStyle(
-              color: AppTheme.inkSoft.withValues(
-                alpha: 0.9,
-              ),
+              color: AppTheme.inkSoft.withValues(alpha: 0.9),
               fontSize: 11,
               fontWeight: FontWeight.w800,
               letterSpacing: 1.1,
@@ -293,9 +276,7 @@ class _MonthlyCalculationDetailScreenState
         return Container(
           padding: const EdgeInsets.all(20),
           decoration:
-              AppTheme.glassDarkDecoration(
-            radius: 26,
-          ),
+              AppTheme.glassDarkDecoration(radius: 26),
           child: Column(
             crossAxisAlignment:
                 CrossAxisAlignment.start,
@@ -306,9 +287,7 @@ class _MonthlyCalculationDetailScreenState
                     width: 42,
                     height: 42,
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(
-                        alpha: 0.10,
-                      ),
+                      color: Colors.white.withValues(alpha: 0.10),
                       borderRadius:
                           BorderRadius.circular(14),
                     ),
@@ -326,17 +305,17 @@ class _MonthlyCalculationDetailScreenState
                         Text(
                           widget.monthLabel,
                           style: TextStyle(
-                            color: Colors.white.withValues(
-                              alpha: 0.70,
-                            ),
+                            color: Colors.white.withValues(alpha: 0.70),
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         const SizedBox(height: 2),
-                        const Text(
-                          'Calculado automaticamente',
-                          style: TextStyle(
+                        Text(
+                          widget.type == MonthlyCalculationType.creditCards
+                              ? 'Fatura calculada pelo ciclo'
+                              : 'Fluxo PIX do mês',
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
@@ -348,32 +327,15 @@ class _MonthlyCalculationDetailScreenState
                 ],
               ),
               const SizedBox(height: 22),
-              Text(
-                _money(_total),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 31,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.8,
-                ),
-              ),
-              const SizedBox(height: 7),
-              Text(
-                '$_count ${_count == 1 ? 'lançamento considerado' : 'lançamentos considerados'}',
-                style: TextStyle(
-                  color: Colors.white.withValues(
-                    alpha: 0.72,
-                  ),
-                  fontSize: 12.5,
-                ),
-              ),
+              if (widget.type == MonthlyCalculationType.creditCards)
+                _buildCardSummary()
+              else
+                _buildPixSummary(),
               const SizedBox(height: 14),
               Text(
                 _subtitle,
                 style: TextStyle(
-                  color: Colors.white.withValues(
-                    alpha: 0.62,
-                  ),
+                  color: Colors.white.withValues(alpha: 0.62),
                   fontSize: 11.5,
                   height: 1.35,
                 ),
@@ -385,29 +347,166 @@ class _MonthlyCalculationDetailScreenState
     );
   }
 
+  Widget _buildCardSummary() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          _money(_total),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 31,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.8,
+          ),
+        ),
+        const SizedBox(height: 7),
+        Text(
+          '$_count ${_count == 1 ? 'lançamento' : 'lançamentos'} na fatura',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.72),
+            fontSize: 12.5,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPixSummary() {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _buildPixMetric(
+                label: 'Recebido',
+                value: _pixReceived,
+                icon: Icons.south_west_rounded,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildPixMetric(
+                label: 'Enviado',
+                value: _pixSent,
+                icon: Icons.north_east_rounded,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 12,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.09),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Saldo líquido PIX',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Text(
+                _money(_pixNet),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            '$_count movimentações PIX encontradas',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.68),
+              fontSize: 11.5,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPixMetric({
+    required String label,
+    required double value,
+    required IconData icon,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            icon,
+            size: 17,
+            color: Colors.white.withValues(alpha: 0.78),
+          ),
+          const SizedBox(height: 7),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.62),
+              fontSize: 10.5,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            _money(value),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildEmptyState() {
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: 18,
         vertical: 28,
       ),
-      decoration: AppTheme.glassDecoration(
-        radius: 22,
-      ),
+      decoration: AppTheme.glassDecoration(radius: 22),
       child: Column(
         children: [
           Icon(
             _icon,
             size: 34,
-            color: AppTheme.inkSoft.withValues(
-              alpha: 0.55,
-            ),
+            color: AppTheme.inkSoft.withValues(alpha: 0.55),
           ),
           const SizedBox(height: 10),
-          const Text(
-            'Nenhum lançamento entrou neste cálculo.',
+          Text(
+            widget.type == MonthlyCalculationType.creditCards
+                ? 'Nenhum lançamento entrou nesta fatura.'
+                : 'Nenhuma movimentação PIX encontrada neste mês.',
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               color: AppTheme.inkSoft,
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -429,8 +528,9 @@ class _MonthlyCalculationDetailScreenState
             : item['account_name']?.toString();
     final description =
         item['description']?.toString() ?? 'Lançamento';
-    final installment =
-        _installmentLabel(item);
+    final installment = _installmentLabel(item);
+    final pixOut = _isPixOut(item);
+    final amount = _number(item['amount']);
 
     return ValueListenableBuilder<bool>(
       valueListenable:
@@ -450,14 +550,16 @@ class _MonthlyCalculationDetailScreenState
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: AppTheme.primary.withValues(
-                    alpha: 0.09,
-                  ),
+                  color: AppTheme.primary.withValues(alpha: 0.09),
                   borderRadius:
                       BorderRadius.circular(14),
                 ),
                 child: Icon(
-                  _icon,
+                  widget.type == MonthlyCalculationType.pix
+                      ? (pixOut
+                          ? Icons.north_east_rounded
+                          : Icons.south_west_rounded)
+                      : _icon,
                   color: AppTheme.primary,
                   size: 20,
                 ),
@@ -484,9 +586,15 @@ class _MonthlyCalculationDetailScreenState
                         ),
                         const SizedBox(width: 10),
                         Text(
-                          _money(_itemAmount(item)),
-                          style: const TextStyle(
-                            color: AppTheme.ink,
+                          widget.type == MonthlyCalculationType.pix
+                              ? '${pixOut ? '-' : '+'} ${_money(amount)}'
+                              : _money(amount),
+                          style: TextStyle(
+                            color: widget.type == MonthlyCalculationType.pix
+                                ? (pixOut
+                                    ? AppTheme.danger
+                                    : AppTheme.success)
+                                : AppTheme.ink,
                             fontSize: 14,
                             fontWeight: FontWeight.w800,
                           ),
@@ -510,17 +618,15 @@ class _MonthlyCalculationDetailScreenState
                     Text(
                       [
                         _formatDate(item['date']),
-                        if (installment != null)
-                          installment,
-                        if (widget.type ==
-                                MonthlyCalculationType.pix &&
+                        if (installment != null) installment,
+                        if (widget.type == MonthlyCalculationType.pix)
+                          pixOut ? 'Enviado' : 'Recebido',
+                        if (widget.type == MonthlyCalculationType.pix &&
                             item['counterparty'] != null)
                           item['counterparty'].toString(),
                       ].join(' • '),
                       style: TextStyle(
-                        color: AppTheme.inkSoft.withValues(
-                          alpha: 0.82,
-                        ),
+                        color: AppTheme.inkSoft.withValues(alpha: 0.82),
                         fontSize: 10.8,
                       ),
                     ),
