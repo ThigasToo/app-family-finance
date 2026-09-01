@@ -78,7 +78,8 @@ class AuthService {
     }
 
     if (response.statusCode != 200) {
-      throw Exception('Não foi possível validar sua sessão');
+      // Preserva o token em falhas transitórias do backend.
+      return null;
     }
 
     final user = AppUser.fromJson(jsonDecode(response.body));
