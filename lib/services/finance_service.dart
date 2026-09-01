@@ -36,6 +36,15 @@ class FinanceService {
       throw Exception('Resposta inválida do resumo financeiro');
     }
 
+    final payload = decoded['payload'];
+    if (payload is Map) {
+      // Estes campos podem existir no summary legado com regras automáticas.
+      // A Home só deve usar os totais mensais do endpoint dedicado.
+      payload.remove('manual_commitments_by_month');
+      payload.remove('pix_sent_by_month');
+      payload.remove('credit_card_commitments_by_month');
+    }
+
     try {
       final totalsResponse = await http.get(
         Uri.parse('${ApiConfig.baseUrl}/finance/monthly-totals'),
@@ -44,7 +53,6 @@ class FinanceService {
 
       if (totalsResponse.statusCode == 200) {
         final totals = jsonDecode(totalsResponse.body);
-        final payload = decoded['payload'];
 
         if (totals is Map && payload is Map) {
           if (totals['credit_card_commitments_by_month'] != null) {
@@ -57,15 +65,17 @@ class FinanceService {
                 totals['manual_commitments_by_month'];
           }
 
-          // Compatibilidade com componentes antigos durante a transição.
+          // Mantido somente por compatibilidade visual; recebe o valor manual
+          // do endpoint de totais, nunca o PIX automático do summary legado.
           if (totals['pix_sent_by_month'] != null) {
             payload['pix_sent_by_month'] = totals['pix_sent_by_month'];
           }
         }
       }
     } catch (_) {
-      // Mantém o summary original se o endpoint complementar estiver
-      // temporariamente indisponível durante o deploy.
+      // Em falha do endpoint complementar, os mapas mensais permanecem
+      // ausentes. Isso é mais seguro do que reutilizar cálculos automáticos
+      // antigos e exibir um comprometimento incorreto.
     }
 
     return decoded;
