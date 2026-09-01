@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 
 class AppTheme {
@@ -298,11 +299,13 @@ class AppTheme {
       appBarTheme:
           const AppBarTheme(
         backgroundColor:
-            Colors.transparent,
+            background,
         surfaceTintColor:
             Colors.transparent,
         foregroundColor:
             ink,
+        systemOverlayStyle:
+            SystemUiOverlayStyle.dark,
         elevation:
             0,
         scrolledUnderElevation:
