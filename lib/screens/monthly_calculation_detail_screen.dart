@@ -33,10 +33,13 @@ class MonthlyCalculationDetailScreen extends StatefulWidget {
 class _MonthlyCalculationDetailScreenState
     extends State<MonthlyCalculationDetailScreen> {
   final _financeService = FinanceService();
+  final _commitmentController = TextEditingController();
 
   bool _isLoading = true;
+  bool _isSaving = false;
   String? _error;
   Map<String, dynamic>? _data;
+  double _manualCommitment = 0;
 
   bool get _isCards =>
       widget.type == MonthlyCalculationType.creditCards;
@@ -45,6 +48,12 @@ class _MonthlyCalculationDetailScreenState
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _commitmentController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -56,12 +65,22 @@ class _MonthlyCalculationDetailScreenState
     }
 
     try {
-      final data = await _financeService.getMonthlyBreakdown(
-        month: widget.month,
-      );
+      final results = await Future.wait([
+        _financeService.getMonthlyBreakdown(month: widget.month),
+        if (!_isCards)
+          _financeService.getManualCommitment(month: widget.month),
+      ]);
+
       if (!mounted) return;
+
+      final data = results.first as Map<String, dynamic>;
+      final manual = _isCards ? 0.0 : results[1] as double;
+
       setState(() {
         _data = data;
+        _manualCommitment = manual;
+        _commitmentController.text =
+            manual == 0 ? '' : manual.toStringAsFixed(2).replaceAll('.', ',');
         _isLoading = false;
       });
     } catch (e) {
@@ -73,17 +92,69 @@ class _MonthlyCalculationDetailScreenState
     }
   }
 
+  Future<void> _saveManualCommitment() async {
+    if (_isSaving) return;
+
+    final normalized = _commitmentController.text
+        .trim()
+        .replaceAll('R\$', '')
+        .replaceAll(' ', '')
+        .replaceAll('.', '')
+        .replaceAll(',', '.');
+
+    final value = normalized.isEmpty ? 0.0 : double.tryParse(normalized);
+
+    if (value == null || value < 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Informe um valor válido para o mês.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      final saved = await _financeService.saveManualCommitment(
+        month: widget.month,
+        amount: value,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _manualCommitment = saved;
+        _commitmentController.text =
+            saved == 0 ? '' : saved.toStringAsFixed(2).replaceAll('.', ',');
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Valor do mês salvo.'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.toString().replaceFirst('Exception: ', ''),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
+  }
+
   Map<String, dynamic> _map(dynamic raw) {
     if (raw is Map<String, dynamic>) return raw;
     if (raw is Map) return Map<String, dynamic>.from(raw);
     return {};
   }
-
-  Map<String, dynamic> get _cardSection =>
-      _map(_data?['credit_cards']);
-
-  Map<String, dynamic> get _cashFlow =>
-      _map(_data?['cash_flow'] ?? _data?['pix']);
 
   List<Map<String, dynamic>> _list(dynamic raw) {
     if (raw is! List) return [];
@@ -93,8 +164,19 @@ class _MonthlyCalculationDetailScreenState
         .toList();
   }
 
+  Map<String, dynamic> get _cardSection =>
+      _map(_data?['credit_cards']);
+
+  Map<String, dynamic> get _rawPix =>
+      _map(_data?['raw_pix']);
+
+  Map<String, dynamic> get _cashFlow =>
+      _map(_data?['cash_flow']);
+
   List<Map<String, dynamic>> get _items =>
-      _list(_isCards ? _cardSection['items'] : _cashFlow['items']);
+      _isCards
+          ? _list(_cardSection['items'])
+          : _list(_cashFlow['items']);
 
   double _number(dynamic value) {
     if (value is num) return value.toDouble();
@@ -102,17 +184,12 @@ class _MonthlyCalculationDetailScreenState
   }
 
   double get _cardTotal => _number(_cardSection['total']);
-  double get _externalIn => _number(_cashFlow['external_in']);
-  double get _externalOut => _number(_cashFlow['external_out']);
+  double get _pixReceived => _number(_rawPix['received_total']);
+  double get _pixSent => _number(_rawPix['sent_total']);
   double get _applications =>
       _number(_cashFlow['investment_applications']);
   double get _redemptions =>
       _number(_cashFlow['investment_redemptions']);
-  double get _internalTransfers =>
-      _number(_cashFlow['internal_transfers']);
-  double get _cashIn => _externalIn + _redemptions;
-  double get _cashOut => _externalOut + _applications;
-  double get _cashNet => _number(_cashFlow['net']);
 
   int get _count {
     final value = _isCards
@@ -125,11 +202,11 @@ class _MonthlyCalculationDetailScreenState
 
   String get _title => _isCards
       ? 'Cartões do mês'
-      : 'Fluxo de caixa';
+      : 'Movimentações do mês';
 
   IconData get _icon => _isCards
       ? Icons.credit_card_rounded
-      : Icons.swap_vert_circle_rounded;
+      : Icons.pix_rounded;
 
   String _money(double value) {
     return PrivacyService.instance.valuesVisible.value
@@ -159,20 +236,14 @@ class _MonthlyCalculationDetailScreenState
   String _classification(Map<String, dynamic> item) =>
       item['classification']?.toString().toUpperCase() ?? '';
 
-  bool _isInternal(Map<String, dynamic> item) =>
-      _classification(item) == 'INTERNAL_TRANSFER';
-
-  bool _isPositiveImpact(Map<String, dynamic> item) =>
-      _number(item['impact']) > 0;
-
   String _classificationLabel(Map<String, dynamic> item) {
     switch (_classification(item)) {
       case 'EXTERNAL_IN':
-        return 'Entrada externa';
+        return 'PIX recebido';
       case 'EXTERNAL_OUT':
-        return 'Saída externa';
+        return 'PIX enviado';
       case 'INTERNAL_TRANSFER':
-        return 'Transferência própria • neutra';
+        return 'Transferência entre contas';
       case 'INVESTMENT_APPLICATION':
         return 'Aplicação em investimento';
       case 'INVESTMENT_REDEMPTION':
@@ -197,6 +268,16 @@ class _MonthlyCalculationDetailScreenState
       default:
         return Icons.south_west_rounded;
     }
+  }
+
+  bool _isPositiveMovement(Map<String, dynamic> item) {
+    final classification = _classification(item);
+    return classification == 'EXTERNAL_IN' ||
+        classification == 'INVESTMENT_REDEMPTION';
+  }
+
+  bool _isNeutralMovement(Map<String, dynamic> item) {
+    return _classification(item) == 'INTERNAL_TRANSFER';
   }
 
   @override
@@ -262,7 +343,7 @@ class _MonthlyCalculationDetailScreenState
           _buildSummaryCard(),
           const SizedBox(height: 22),
           Text(
-            _isCards ? 'LANÇAMENTOS DA FATURA' : 'MOVIMENTAÇÕES DO CAIXA',
+            _isCards ? 'LANÇAMENTOS DA FATURA' : 'MOVIMENTAÇÕES PARA CONSULTA',
             style: TextStyle(
               color: AppTheme.inkSoft.withValues(alpha: 0.9),
               fontSize: 11,
@@ -270,6 +351,16 @@ class _MonthlyCalculationDetailScreenState
               letterSpacing: 1.1,
             ),
           ),
+          const SizedBox(height: 6),
+          if (!_isCards)
+            const Text(
+              'A lista abaixo não altera o cálculo automaticamente. Use-a para conferir o mês e informe no card acima quanto deve entrar como comprometido.',
+              style: TextStyle(
+                color: AppTheme.inkSoft,
+                fontSize: 11.5,
+                height: 1.35,
+              ),
+            ),
           const SizedBox(height: 10),
           if (_items.isEmpty)
             _buildEmptyState()
@@ -318,7 +409,7 @@ class _MonthlyCalculationDetailScreenState
                         Text(
                           _isCards
                               ? 'Fatura calculada pelo ciclo'
-                              : 'Caixa disponível do mês',
+                              : 'Consulta das movimentações',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 15,
@@ -331,18 +422,7 @@ class _MonthlyCalculationDetailScreenState
                 ],
               ),
               const SizedBox(height: 22),
-              if (_isCards) _buildCardSummary() else _buildCashFlowSummary(),
-              const SizedBox(height: 14),
-              Text(
-                _isCards
-                    ? 'Ciclo do dia 5 deste mês até antes do dia 5 do mês seguinte.'
-                    : 'Transferências entre suas próprias contas são neutras. Aplicações reduzem o caixa disponível e resgates aumentam.',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.62),
-                  fontSize: 11.5,
-                  height: 1.35,
-                ),
-              ),
+              if (_isCards) _buildCardSummary() else _buildManualSummary(),
             ],
           ),
         );
@@ -371,118 +451,124 @@ class _MonthlyCalculationDetailScreenState
             fontSize: 12.5,
           ),
         ),
+        const SizedBox(height: 12),
+        Text(
+          'Ciclo do dia 5 deste mês até antes do dia 5 do mês seguinte.',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.62),
+            fontSize: 11.5,
+            height: 1.35,
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildCashFlowSummary() {
+  Widget _buildManualSummary() {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const Text(
+          'Valor a considerar como comprometido',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Analise as movimentações abaixo e informe manualmente o valor que deve reduzir o disponível deste mês.',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.68),
+            fontSize: 11.5,
+            height: 1.35,
+          ),
+        ),
+        const SizedBox(height: 14),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: _metric(
-                label: 'Entradas no caixa',
-                value: _cashIn,
-                icon: Icons.south_west_rounded,
+              child: TextField(
+                controller: _commitmentController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+                decoration: InputDecoration(
+                  labelText: 'Comprometido no mês',
+                  labelStyle: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.68),
+                  ),
+                  prefixText: 'R\$ ',
+                  prefixStyle: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  filled: true,
+                  fillColor: Colors.white.withValues(alpha: 0.10),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.16),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.60),
+                    ),
+                  ),
+                ),
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _metric(
-                label: 'Saídas do caixa',
-                value: _cashOut,
-                icon: Icons.north_east_rounded,
+            const SizedBox(width: 10),
+            SizedBox(
+              height: 58,
+              child: FilledButton(
+                onPressed: _isSaving ? null : _saveManualCommitment,
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: AppTheme.primaryDark,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                ),
+                child: _isSaving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Salvar'),
               ),
             ),
           ],
         ),
         const SizedBox(height: 12),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.09),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Fluxo líquido',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              Text(
-                _money(_cashNet),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
+        Text(
+          'Valor salvo: ${_money(_manualCommitment)}',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.78),
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 16),
         Wrap(
           spacing: 8,
           runSpacing: 8,
           children: [
+            _pill('PIX recebidos ${_money(_pixReceived)}'),
+            _pill('PIX enviados ${_money(_pixSent)}'),
             _pill('Aplicações ${_money(_applications)}'),
             _pill('Resgates ${_money(_redemptions)}'),
-            if (_internalTransfers > 0)
-              _pill('Transf. internas ${_money(_internalTransfers)}'),
           ],
         ),
       ],
-    );
-  }
-
-  Widget _metric({
-    required String label,
-    required double value,
-    required IconData icon,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.09),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            icon,
-            size: 17,
-            color: Colors.white.withValues(alpha: 0.78),
-          ),
-          const SizedBox(height: 7),
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.62),
-              fontSize: 10.5,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            _money(value),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -496,7 +582,7 @@ class _MonthlyCalculationDetailScreenState
       child: Text(
         text,
         style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.72),
+          color: Colors.white.withValues(alpha: 0.74),
           fontSize: 10.5,
           fontWeight: FontWeight.w600,
         ),
@@ -519,7 +605,7 @@ class _MonthlyCalculationDetailScreenState
           Text(
             _isCards
                 ? 'Nenhum lançamento entrou nesta fatura.'
-                : 'Nenhuma movimentação de caixa encontrada neste mês.',
+                : 'Nenhuma movimentação encontrada neste mês.',
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: AppTheme.inkSoft,
@@ -542,9 +628,8 @@ class _MonthlyCalculationDetailScreenState
         item['description']?.toString() ?? 'Lançamento';
     final installment = _installmentLabel(item);
     final amount = _number(item['amount']);
-    final impact = _number(item['impact']);
-    final internal = !_isCards && _isInternal(item);
-    final positive = !_isCards && _isPositiveImpact(item);
+    final positive = !_isCards && _isPositiveMovement(item);
+    final neutral = !_isCards && _isNeutralMovement(item);
     final investmentName = item['investment_name']?.toString();
 
     return ValueListenableBuilder<bool>(
@@ -552,11 +637,9 @@ class _MonthlyCalculationDetailScreenState
       builder: (context, _, __) {
         final amountText = _isCards
             ? _money(amount)
-            : internal
-                ? _money(amount)
-                : '${positive ? '+' : '-'} ${_money(impact.abs())}';
+            : '${positive ? '+' : neutral ? '' : '-'} ${_money(amount)}';
 
-        final amountColor = _isCards || internal
+        final amountColor = _isCards || neutral
             ? AppTheme.ink
             : positive
                 ? AppTheme.success
