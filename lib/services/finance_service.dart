@@ -93,14 +93,32 @@ class FinanceService {
 
   Future<Map<String, dynamic>> getMonthlyBreakdown({
     required String month,
+    DateTime? dateFrom,
+    DateTime? dateTo,
   }) async {
     final headers = await _authenticatedHeaders();
 
+    String formatDate(DateTime value) {
+      final m = value.month.toString().padLeft(2, '0');
+      final d = value.day.toString().padLeft(2, '0');
+      return '${value.year}-$m-$d';
+    }
+
+    final query = <String, String>{
+      'month': month,
+    };
+
+    if (dateFrom != null) {
+      query['date_from'] = formatDate(dateFrom);
+    }
+
+    if (dateTo != null) {
+      query['date_to'] = formatDate(dateTo);
+    }
+
     final uri = Uri.parse(
       '${ApiConfig.baseUrl}/finance/monthly-breakdown',
-    ).replace(
-      queryParameters: {'month': month},
-    );
+    ).replace(queryParameters: query);
 
     final response = await http.get(uri, headers: headers);
 
