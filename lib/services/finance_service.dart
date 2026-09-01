@@ -20,6 +20,12 @@ class FinanceService {
     };
   }
 
+  String _formatDate(DateTime value) {
+    final m = value.month.toString().padLeft(2, '0');
+    final d = value.day.toString().padLeft(2, '0');
+    return '${value.year}-$m-$d';
+  }
+
   void _applyMonthlyTotals(
     Map<dynamic, dynamic> payload,
     Map<dynamic, dynamic> totals,
@@ -27,6 +33,10 @@ class FinanceService {
     if (totals['credit_card_commitments_by_month'] != null) {
       payload['credit_card_commitments_by_month'] =
           totals['credit_card_commitments_by_month'];
+    }
+
+    if (totals['card_periods_by_month'] != null) {
+      payload['card_periods_by_month'] = totals['card_periods_by_month'];
     }
 
     if (totals['manual_commitments_by_month'] != null) {
@@ -59,10 +69,10 @@ class FinanceService {
 
     final payload = decoded['payload'];
     if (payload is Map) {
-      // Nunca reutiliza os mapas automáticos do summary legado.
       payload['manual_commitments_by_month'] = <String, dynamic>{};
       payload['pix_sent_by_month'] = <String, dynamic>{};
       payload['credit_card_commitments_by_month'] = <String, dynamic>{};
+      payload['card_periods_by_month'] = <String, dynamic>{};
     }
 
     try {
@@ -98,23 +108,9 @@ class FinanceService {
   }) async {
     final headers = await _authenticatedHeaders();
 
-    String formatDate(DateTime value) {
-      final m = value.month.toString().padLeft(2, '0');
-      final d = value.day.toString().padLeft(2, '0');
-      return '${value.year}-$m-$d';
-    }
-
-    final query = <String, String>{
-      'month': month,
-    };
-
-    if (dateFrom != null) {
-      query['date_from'] = formatDate(dateFrom);
-    }
-
-    if (dateTo != null) {
-      query['date_to'] = formatDate(dateTo);
-    }
+    final query = <String, String>{'month': month};
+    if (dateFrom != null) query['date_from'] = _formatDate(dateFrom);
+    if (dateTo != null) query['date_to'] = _formatDate(dateTo);
 
     final uri = Uri.parse(
       '${ApiConfig.baseUrl}/finance/monthly-breakdown',
@@ -124,23 +120,91 @@ class FinanceService {
 
     if (response.statusCode != 200) {
       String message = 'Erro ao buscar detalhamento do mês';
-
       try {
         final data = jsonDecode(response.body);
         if (data is Map && data['detail'] != null) {
           message = data['detail'].toString();
         }
       } catch (_) {}
-
       throw Exception(message);
     }
 
     final data = jsonDecode(response.body);
-
     if (data is! Map<String, dynamic>) {
       throw Exception('Resposta inválida do detalhamento mensal');
     }
+    return data;
+  }
 
+  Future<Map<String, dynamic>> getCardPeriod({
+    required String month,
+  }) async {
+    final headers = await _authenticatedHeaders();
+    final uri = Uri.parse(
+      '${ApiConfig.baseUrl}/finance/card-period',
+    ).replace(queryParameters: {'month': month});
+
+    final response = await http.get(uri, headers: headers);
+    if (response.statusCode != 200) {
+      throw Exception('Erro ao buscar período dos cartões');
+    }
+
+    final data = jsonDecode(response.body);
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Resposta inválida do período dos cartões');
+    }
+    return data;
+  }
+
+  Future<Map<String, dynamic>> saveCardPeriod({
+    required String month,
+    required DateTime dateFrom,
+    required DateTime dateTo,
+  }) async {
+    final headers = await _authenticatedHeaders();
+    final uri = Uri.parse(
+      '${ApiConfig.baseUrl}/finance/card-period',
+    ).replace(queryParameters: {'month': month});
+
+    final response = await http.put(
+      uri,
+      headers: headers,
+      body: jsonEncode({
+        'date_from': _formatDate(dateFrom),
+        'date_to': _formatDate(dateTo),
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Erro ao salvar período dos cartões');
+    }
+
+    _lastMonthlyTotals = null;
+    final data = jsonDecode(response.body);
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Resposta inválida ao salvar período dos cartões');
+    }
+    return data;
+  }
+
+  Future<Map<String, dynamic>> resetCardPeriod({
+    required String month,
+  }) async {
+    final headers = await _authenticatedHeaders();
+    final uri = Uri.parse(
+      '${ApiConfig.baseUrl}/finance/card-period',
+    ).replace(queryParameters: {'month': month});
+
+    final response = await http.delete(uri, headers: headers);
+    if (response.statusCode != 200) {
+      throw Exception('Erro ao restaurar período mensal dos cartões');
+    }
+
+    _lastMonthlyTotals = null;
+    final data = jsonDecode(response.body);
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Resposta inválida ao restaurar período dos cartões');
+    }
     return data;
   }
 
@@ -148,20 +212,17 @@ class FinanceService {
     required String month,
   }) async {
     final headers = await _authenticatedHeaders();
-
     final uri = Uri.parse(
       '${ApiConfig.baseUrl}/finance/manual-commitment',
     ).replace(queryParameters: {'month': month});
 
     final response = await http.get(uri, headers: headers);
-
     if (response.statusCode != 200) {
       throw Exception('Erro ao buscar compromisso manual do mês');
     }
 
     final data = jsonDecode(response.body);
     if (data is! Map) return 0;
-
     final value = data['amount'];
     if (value is num) return value.toDouble();
     return double.tryParse(value?.toString() ?? '') ?? 0;
@@ -172,7 +233,6 @@ class FinanceService {
     required double amount,
   }) async {
     final headers = await _authenticatedHeaders();
-
     final uri = Uri.parse(
       '${ApiConfig.baseUrl}/finance/manual-commitment',
     ).replace(queryParameters: {'month': month});
@@ -194,6 +254,7 @@ class FinanceService {
       throw Exception(message);
     }
 
+    _lastMonthlyTotals = null;
     final data = jsonDecode(response.body);
     final value = data is Map ? data['amount'] : null;
     if (value is num) return value.toDouble();
@@ -202,39 +263,31 @@ class FinanceService {
 
   Future<Map<String, dynamic>> refresh() async {
     final headers = await _authenticatedHeaders();
-
     final response = await http.post(
       Uri.parse('${ApiConfig.baseUrl}/finance/refresh'),
       headers: headers,
     );
-
     final data = jsonDecode(response.body);
 
     if (response.statusCode == 429) {
-      throw Exception(
-        data['detail'] ?? 'Aguarde antes de atualizar novamente',
-      );
+      throw Exception(data['detail'] ?? 'Aguarde antes de atualizar novamente');
     }
-
     if (response.statusCode != 200) {
       throw Exception('Erro ao atualizar dados financeiros');
     }
-
+    _lastMonthlyTotals = null;
     return data;
   }
 
   Future<List<dynamic>> getManualInvestments() async {
     final headers = await _authenticatedHeaders();
-
     final response = await http.get(
       Uri.parse('${ApiConfig.baseUrl}/investments/manual'),
       headers: headers,
     );
-
     if (response.statusCode != 200) {
       throw Exception('Erro ao buscar investimentos manuais');
     }
-
     return jsonDecode(response.body);
   }
 
@@ -250,7 +303,6 @@ class FinanceService {
     double? investedValue,
   }) async {
     final headers = await _authenticatedHeaders();
-
     final payload = <String, dynamic>{
       'name': name,
       'type': type,
@@ -259,9 +311,7 @@ class FinanceService {
       'currency': currency,
     };
 
-    if (ticker != null && ticker.trim().isNotEmpty) {
-      payload['ticker'] = ticker.trim();
-    }
+    if (ticker != null && ticker.trim().isNotEmpty) payload['ticker'] = ticker.trim();
     if (quantity != null) payload['quantity'] = quantity;
     if (averagePrice != null) payload['average_price'] = averagePrice;
     if (investedValue != null) payload['invested_value'] = investedValue;
@@ -271,11 +321,9 @@ class FinanceService {
       headers: headers,
       body: jsonEncode(payload),
     );
-
     if (response.statusCode != 201) {
       throw Exception('Erro ao adicionar investimento');
     }
-
     return jsonDecode(response.body);
   }
 
@@ -284,28 +332,23 @@ class FinanceService {
     required Map<String, dynamic> data,
   }) async {
     final headers = await _authenticatedHeaders();
-
     final response = await http.patch(
       Uri.parse('${ApiConfig.baseUrl}/investments/manual/$id'),
       headers: headers,
       body: jsonEncode(data),
     );
-
     if (response.statusCode != 200) {
       throw Exception('Erro ao atualizar investimento');
     }
-
     return jsonDecode(response.body);
   }
 
   Future<void> deleteManualInvestment(int id) async {
     final headers = await _authenticatedHeaders();
-
     final response = await http.delete(
       Uri.parse('${ApiConfig.baseUrl}/investments/manual/$id'),
       headers: headers,
     );
-
     if (response.statusCode != 204) {
       throw Exception('Erro ao excluir investimento');
     }
