@@ -9,6 +9,8 @@ import 'auth_service.dart';
 class FinanceService {
   final _authService = AuthService();
 
+  static Map<String, dynamic>? _lastMonthlyTotals;
+
   Future<Map<String, String>> _authenticatedHeaders() async {
     final token = await _authService.getToken();
 
@@ -16,6 +18,25 @@ class FinanceService {
       'Authorization': 'Bearer $token',
       'Content-Type': 'application/json',
     };
+  }
+
+  void _applyMonthlyTotals(
+    Map<dynamic, dynamic> payload,
+    Map<dynamic, dynamic> totals,
+  ) {
+    if (totals['credit_card_commitments_by_month'] != null) {
+      payload['credit_card_commitments_by_month'] =
+          totals['credit_card_commitments_by_month'];
+    }
+
+    if (totals['manual_commitments_by_month'] != null) {
+      payload['manual_commitments_by_month'] =
+          totals['manual_commitments_by_month'];
+    }
+
+    if (totals['pix_sent_by_month'] != null) {
+      payload['pix_sent_by_month'] = totals['pix_sent_by_month'];
+    }
   }
 
   Future<Map<String, dynamic>> getSummary() async {
@@ -38,11 +59,10 @@ class FinanceService {
 
     final payload = decoded['payload'];
     if (payload is Map) {
-      // Estes campos podem existir no summary legado com regras automáticas.
-      // A Home só deve usar os totais mensais do endpoint dedicado.
-      payload.remove('manual_commitments_by_month');
-      payload.remove('pix_sent_by_month');
-      payload.remove('credit_card_commitments_by_month');
+      // Nunca reutiliza os mapas automáticos do summary legado.
+      payload['manual_commitments_by_month'] = <String, dynamic>{};
+      payload['pix_sent_by_month'] = <String, dynamic>{};
+      payload['credit_card_commitments_by_month'] = <String, dynamic>{};
     }
 
     try {
@@ -53,29 +73,19 @@ class FinanceService {
 
       if (totalsResponse.statusCode == 200) {
         final totals = jsonDecode(totalsResponse.body);
-
-        if (totals is Map && payload is Map) {
-          if (totals['credit_card_commitments_by_month'] != null) {
-            payload['credit_card_commitments_by_month'] =
-                totals['credit_card_commitments_by_month'];
-          }
-
-          if (totals['manual_commitments_by_month'] != null) {
-            payload['manual_commitments_by_month'] =
-                totals['manual_commitments_by_month'];
-          }
-
-          // Mantido somente por compatibilidade visual; recebe o valor manual
-          // do endpoint de totais, nunca o PIX automático do summary legado.
-          if (totals['pix_sent_by_month'] != null) {
-            payload['pix_sent_by_month'] = totals['pix_sent_by_month'];
+        if (totals is Map) {
+          _lastMonthlyTotals = Map<String, dynamic>.from(totals);
+          if (payload is Map) {
+            _applyMonthlyTotals(payload, totals);
           }
         }
+      } else if (payload is Map && _lastMonthlyTotals != null) {
+        _applyMonthlyTotals(payload, _lastMonthlyTotals!);
       }
     } catch (_) {
-      // Em falha do endpoint complementar, os mapas mensais permanecem
-      // ausentes. Isso é mais seguro do que reutilizar cálculos automáticos
-      // antigos e exibir um comprometimento incorreto.
+      if (payload is Map && _lastMonthlyTotals != null) {
+        _applyMonthlyTotals(payload, _lastMonthlyTotals!);
+      }
     }
 
     return decoded;
