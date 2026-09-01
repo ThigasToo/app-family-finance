@@ -68,6 +68,11 @@ class _MonthlyCalculationDetailScreenState
     );
   }
 
+  DateTime _parseApiDate(dynamic value, DateTime fallback) {
+    if (value == null) return fallback;
+    return DateTime.tryParse(value.toString()) ?? fallback;
+  }
+
   Future<void> _load() async {
     if (mounted) {
       setState(() {
@@ -77,20 +82,39 @@ class _MonthlyCalculationDetailScreenState
     }
 
     try {
-      final results = await Future.wait([
-        _financeService.getMonthlyBreakdown(
+      if (_isCards) {
+        final period = await _financeService.getCardPeriod(
           month: widget.month,
-          dateFrom: _isCards ? _cardRange.start : null,
-          dateTo: _isCards ? _cardRange.end : null,
-        ),
-        if (!_isCards)
-          _financeService.getManualCommitment(month: widget.month),
+        );
+        final full = _fullMonthRange();
+        final range = DateTimeRange(
+          start: _parseApiDate(period['date_from'], full.start),
+          end: _parseApiDate(period['date_to'], full.end),
+        );
+
+        final data = await _financeService.getMonthlyBreakdown(
+          month: widget.month,
+          dateFrom: range.start,
+          dateTo: range.end,
+        );
+
+        if (!mounted) return;
+        setState(() {
+          _cardRange = range;
+          _data = data;
+          _isLoading = false;
+        });
+        return;
+      }
+
+      final results = await Future.wait([
+        _financeService.getMonthlyBreakdown(month: widget.month),
+        _financeService.getManualCommitment(month: widget.month),
       ]);
 
       if (!mounted) return;
-
-      final data = results.first as Map<String, dynamic>;
-      final manual = _isCards ? 0.0 : results[1] as double;
+      final data = results[0] as Map<String, dynamic>;
+      final manual = results[1] as double;
 
       setState(() {
         _data = data;
@@ -111,8 +135,8 @@ class _MonthlyCalculationDetailScreenState
   Future<void> _selectCardRange() async {
     final selected = await showDateRangePicker(
       context: context,
-      firstDate: DateTime(2020, 1, 1),
-      lastDate: DateTime(DateTime.now().year + 3, 12, 31),
+      firstDate: DateTime(2025, 1, 1),
+      lastDate: DateTime(DateTime.now().year + 2, 12, 31),
       initialDateRange: _cardRange,
       helpText: 'Filtrar lançamentos dos cartões',
       saveText: 'Aplicar',
@@ -122,29 +146,61 @@ class _MonthlyCalculationDetailScreenState
 
     if (selected == null || !mounted) return;
 
-    setState(() => _cardRange = selected);
-    await _load();
+    setState(() => _isLoading = true);
+    try {
+      await _financeService.saveCardPeriod(
+        month: widget.month,
+        dateFrom: selected.start,
+        dateTo: selected.end,
+      );
+      if (!mounted) return;
+      setState(() => _cardRange = selected);
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    }
   }
 
   Future<void> _resetCardRange() async {
-    setState(() => _cardRange = _fullMonthRange());
-    await _load();
+    setState(() => _isLoading = true);
+    try {
+      await _financeService.resetCardPeriod(month: widget.month);
+      if (!mounted) return;
+      setState(() => _cardRange = _fullMonthRange());
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    }
+  }
+
+  double? _parseCurrencyInput(String input) {
+    var value = input.trim().replaceAll('R\$', '').replaceAll(' ', '');
+
+    if (value.contains(',') && value.contains('.')) {
+      value = value.replaceAll('.', '').replaceAll(',', '.');
+    } else if (value.contains(',')) {
+      value = value.replaceAll(',', '.');
+    }
+
+    return value.isEmpty ? 0.0 : double.tryParse(value);
   }
 
   Future<void> _saveManualCommitment() async {
     if (_isSaving) return;
 
-    var normalized = _commitmentController.text
-        .trim()
-        .replaceAll('R\$', '')
-        .replaceAll(' ', '');
-
-    if (normalized.contains(',')) {
-      normalized = normalized.replaceAll('.', '').replaceAll(',', '.');
-    }
-
-    final value = normalized.isEmpty ? 0.0 : double.tryParse(normalized);
-
+    final value = _parseCurrencyInput(_commitmentController.text);
     if (value == null || value < 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -163,7 +219,6 @@ class _MonthlyCalculationDetailScreenState
       );
 
       if (!mounted) return;
-
       setState(() {
         _manualCommitment = saved;
         _commitmentController.text =
@@ -201,17 +256,14 @@ class _MonthlyCalculationDetailScreenState
 
   Map<String, dynamic> get _cardSection =>
       _map(_data?['credit_cards']);
-
   Map<String, dynamic> get _rawPix =>
       _map(_data?['raw_pix']);
-
   Map<String, dynamic> get _cashFlow =>
       _map(_data?['cash_flow']);
 
-  List<Map<String, dynamic>> get _items =>
-      _isCards
-          ? _list(_cardSection['items'])
-          : _list(_cashFlow['items']);
+  List<Map<String, dynamic>> get _items => _isCards
+      ? _list(_cardSection['items'])
+      : _list(_cashFlow['items']);
 
   double _number(dynamic value) {
     if (value is num) return value.toDouble();
@@ -227,9 +279,7 @@ class _MonthlyCalculationDetailScreenState
       _number(_cashFlow['investment_redemptions']);
 
   int get _count {
-    final value = _isCards
-        ? _cardSection['count']
-        : _cashFlow['count'];
+    final value = _isCards ? _cardSection['count'] : _cashFlow['count'];
     if (value is int) return value;
     if (value is num) return value.toInt();
     return _items.length;
@@ -247,30 +297,22 @@ class _MonthlyCalculationDetailScreenState
         : '••••••';
   }
 
-  String _formatDate(dynamic value) {
-    if (value == null) return 'Data não informada';
-    try {
-      final date = DateTime.parse(value.toString());
-      return _shortDate(date);
-    } catch (_) {
-      return value.toString();
-    }
-  }
-
   String _shortDate(DateTime date) {
     final day = date.day.toString().padLeft(2, '0');
     final month = date.month.toString().padLeft(2, '0');
     return '$day/$month/${date.year}';
   }
 
+  String _formatDate(dynamic value) {
+    if (value == null) return 'Data não informada';
+    final parsed = DateTime.tryParse(value.toString());
+    return parsed == null ? value.toString() : _shortDate(parsed);
+  }
+
   bool get _isFullMonthRange {
     final full = _fullMonthRange();
-    return _cardRange.start.year == full.start.year &&
-        _cardRange.start.month == full.start.month &&
-        _cardRange.start.day == full.start.day &&
-        _cardRange.end.year == full.end.year &&
-        _cardRange.end.month == full.end.month &&
-        _cardRange.end.day == full.end.day;
+    return DateUtils.isSameDay(_cardRange.start, full.start) &&
+        DateUtils.isSameDay(_cardRange.end, full.end);
   }
 
   String get _cardRangeLabel =>
@@ -337,10 +379,7 @@ class _MonthlyCalculationDetailScreenState
         decoration: const BoxDecoration(
           gradient: AppTheme.backgroundGradient,
         ),
-        child: SafeArea(
-          top: false,
-          child: _buildBody(),
-        ),
+        child: SafeArea(top: false, child: _buildBody()),
       ),
     );
   }
@@ -366,10 +405,7 @@ class _MonthlyCalculationDetailScreenState
               Text(
                 _error!,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: AppTheme.inkSoft,
-                  fontSize: 14,
-                ),
+                style: const TextStyle(color: AppTheme.inkSoft),
               ),
               const SizedBox(height: 18),
               FilledButton.icon(
@@ -432,10 +468,7 @@ class _MonthlyCalculationDetailScreenState
       decoration: AppTheme.glassDecoration(radius: 20),
       child: Row(
         children: [
-          const Icon(
-            Icons.date_range_rounded,
-            color: AppTheme.primary,
-          ),
+          const Icon(Icons.date_range_rounded, color: AppTheme.primary),
           const SizedBox(width: 10),
           Expanded(
             child: InkWell(
@@ -448,10 +481,7 @@ class _MonthlyCalculationDetailScreenState
                   children: [
                     const Text(
                       'Período dos lançamentos',
-                      style: TextStyle(
-                        color: AppTheme.inkSoft,
-                        fontSize: 11,
-                      ),
+                      style: TextStyle(color: AppTheme.inkSoft, fontSize: 11),
                     ),
                     const SizedBox(height: 3),
                     Text(
@@ -589,68 +619,66 @@ class _MonthlyCalculationDetailScreenState
             height: 1.35,
           ),
         ),
-        const SizedBox(height: 14),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _commitmentController,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                ),
-                decoration: InputDecoration(
-                  labelText: 'Comprometido no mês',
-                  labelStyle: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.68),
-                  ),
-                  prefixText: 'R\$ ',
-                  prefixStyle: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                  ),
-                  filled: true,
-                  fillColor: Colors.white.withValues(alpha: 0.10),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.16),
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.60),
-                    ),
-                  ),
-                ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _commitmentController,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => _saveManualCommitment(),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+          ),
+          cursorColor: Colors.white,
+          decoration: InputDecoration(
+            hintText: '0,00',
+            hintStyle: TextStyle(
+              color: Colors.white.withValues(alpha: 0.38),
+            ),
+            prefixText: 'R\$ ',
+            prefixStyle: const TextStyle(
+              color: Colors.white,
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+            ),
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.12),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 18,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(
+                color: Colors.white.withValues(alpha: 0.22),
               ),
             ),
-            const SizedBox(width: 10),
-            SizedBox(
-              height: 58,
-              child: FilledButton(
-                onPressed: _isSaving ? null : _saveManualCommitment,
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: AppTheme.primaryDark,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                ),
-                child: _isSaving
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Salvar'),
-              ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(color: Colors.white, width: 1.4),
             ),
-          ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: FilledButton.icon(
+            onPressed: _isSaving ? null : _saveManualCommitment,
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: AppTheme.primaryDark,
+            ),
+            icon: _isSaving
+                ? const SizedBox(
+                    width: 17,
+                    height: 17,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.check_rounded),
+            label: Text(_isSaving ? 'Salvando...' : 'Salvar valor do mês'),
+          ),
         ),
         const SizedBox(height: 12),
         Text(
@@ -702,8 +730,8 @@ class _MonthlyCalculationDetailScreenState
         children: [
           Icon(
             _icon,
-            size: 34,
-            color: AppTheme.inkSoft.withValues(alpha: 0.55),
+            size: 32,
+            color: AppTheme.primary.withValues(alpha: 0.65),
           ),
           const SizedBox(height: 10),
           Text(
@@ -714,7 +742,6 @@ class _MonthlyCalculationDetailScreenState
             style: const TextStyle(
               color: AppTheme.inkSoft,
               fontSize: 13,
-              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -734,107 +761,98 @@ class _MonthlyCalculationDetailScreenState
     final neutral = !_isCards && _isNeutralMovement(item);
     final investmentName = item['investment_name']?.toString();
 
-    return ValueListenableBuilder<bool>(
-      valueListenable: PrivacyService.instance.valuesVisible,
-      builder: (context, _, __) {
-        final amountText = _isCards
+    final amountText = _isCards
+        ? _money(amount)
+        : neutral
             ? _money(amount)
-            : '${positive ? '+' : neutral ? '' : '-'} ${_money(amount)}';
+            : '${positive ? '+' : '-'} ${_money(amount)}';
 
-        final amountColor = _isCards || neutral
-            ? AppTheme.ink
-            : positive
-                ? AppTheme.success
-                : AppTheme.danger;
-
-        return Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.all(16),
-          decoration: AppTheme.glassDecoration(
-            radius: 20,
-            opacity: 0.72,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: AppTheme.glassDecoration(radius: 22),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppTheme.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(
+              _isCards ? Icons.credit_card_rounded : _flowIcon(item),
+              color: AppTheme.primary,
+            ),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: AppTheme.primary.withValues(alpha: 0.09),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(
-                  _isCards ? _icon : _flowIcon(item),
-                  color: AppTheme.primary,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            description,
-                            style: const TextStyle(
-                              color: AppTheme.ink,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
+                    Expanded(
+                      child: Text(
+                        description,
+                        style: const TextStyle(
+                          color: AppTheme.ink,
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w700,
                         ),
-                        const SizedBox(width: 10),
-                        Text(
-                          amountText,
-                          style: TextStyle(
-                            color: amountColor,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      [
-                        institution,
-                        if (accountName != null && accountName.trim().isNotEmpty)
-                          accountName,
-                        if (investmentName != null &&
-                            investmentName.trim().isNotEmpty)
-                          investmentName,
-                      ].join(' • '),
-                      style: const TextStyle(
-                        color: AppTheme.inkSoft,
-                        fontSize: 11.5,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(width: 8),
                     Text(
-                      [
-                        _formatDate(item['date']),
-                        if (installment != null) installment,
-                        if (!_isCards) _classificationLabel(item),
-                        if (!_isCards && item['counterparty'] != null)
-                          item['counterparty'].toString(),
-                      ].join(' • '),
+                      amountText,
                       style: TextStyle(
-                        color: AppTheme.inkSoft.withValues(alpha: 0.82),
-                        fontSize: 10.8,
+                        color: neutral
+                            ? AppTheme.ink
+                            : positive
+                                ? AppTheme.success
+                                : _isCards
+                                    ? AppTheme.ink
+                                    : AppTheme.danger,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                   ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 7),
+                Text(
+                  [
+                    institution,
+                    if (accountName != null && accountName.trim().isNotEmpty)
+                      accountName,
+                    if (investmentName != null &&
+                        investmentName.trim().isNotEmpty)
+                      investmentName,
+                  ].join(' • '),
+                  style: const TextStyle(
+                    color: AppTheme.inkSoft,
+                    fontSize: 11.5,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  [
+                    _formatDate(item['date']),
+                    if (_isCards && installment != null) installment,
+                    if (!_isCards) _classificationLabel(item),
+                  ].join(' • '),
+                  style: TextStyle(
+                    color: AppTheme.inkSoft.withValues(alpha: 0.80),
+                    fontSize: 10.5,
+                  ),
+                ),
+              ],
+            ),
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 }
