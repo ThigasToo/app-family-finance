@@ -1,11 +1,16 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http/http.dart' as http;
+
 import '../config/api_config.dart';
 import '../models/user.dart';
+import 'planning_scope_service.dart';
+
 
 class AuthService {
   final _storage = const FlutterSecureStorage();
+  final _planningScope = PlanningScopeService();
 
   Future<void> register({
     required String name,
@@ -15,7 +20,11 @@ class AuthService {
     final response = await http.post(
       Uri.parse('${ApiConfig.baseUrl}/auth/register'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'name': name, 'email': email, 'password': password}),
+      body: jsonEncode({
+        'name': name,
+        'email': email,
+        'password': password,
+      }),
     );
 
     if (response.statusCode != 200) {
@@ -24,7 +33,10 @@ class AuthService {
     }
   }
 
-  Future<void> login({required String email, required String password}) async {
+  Future<void> login({
+    required String email,
+    required String password,
+  }) async {
     final response = await http.post(
       Uri.parse('${ApiConfig.baseUrl}/auth/login'),
       headers: {'Content-Type': 'application/json'},
@@ -37,11 +49,14 @@ class AuthService {
     }
 
     final data = jsonDecode(response.body);
-    await _storage.write(key: 'access_token', value: data['access_token']);
+    await _storage.write(
+      key: 'access_token',
+      value: data['access_token'],
+    );
   }
 
   Future<String?> getToken() async {
-    return await _storage.read(key: 'access_token');
+    return _storage.read(key: 'access_token');
   }
 
   Future<void> logout() async {
@@ -57,11 +72,18 @@ class AuthService {
       headers: {'Authorization': 'Bearer $token'},
     );
 
-    if (response.statusCode != 200) {
+    if (response.statusCode == 401 || response.statusCode == 403) {
       await logout();
       return null;
     }
 
-    return AppUser.fromJson(jsonDecode(response.body));
+    if (response.statusCode != 200) {
+      // Preserva o token em falhas transitórias do backend.
+      return null;
+    }
+
+    final user = AppUser.fromJson(jsonDecode(response.body));
+    await _planningScope.activateUser(user.id);
+    return user;
   }
 }

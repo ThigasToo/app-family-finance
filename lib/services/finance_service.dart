@@ -9,6 +9,8 @@ import 'auth_service.dart';
 class FinanceService {
   final _authService = AuthService();
 
+  static Map<String, dynamic>? _lastMonthlyTotals;
+
   Future<Map<String, String>> _authenticatedHeaders() async {
     final token = await _authService.getToken();
 
@@ -16,6 +18,25 @@ class FinanceService {
       'Authorization': 'Bearer $token',
       'Content-Type': 'application/json',
     };
+  }
+
+  void _applyMonthlyTotals(
+    Map<dynamic, dynamic> payload,
+    Map<dynamic, dynamic> totals,
+  ) {
+    if (totals['credit_card_commitments_by_month'] != null) {
+      payload['credit_card_commitments_by_month'] =
+          totals['credit_card_commitments_by_month'];
+    }
+
+    if (totals['manual_commitments_by_month'] != null) {
+      payload['manual_commitments_by_month'] =
+          totals['manual_commitments_by_month'];
+    }
+
+    if (totals['pix_sent_by_month'] != null) {
+      payload['pix_sent_by_month'] = totals['pix_sent_by_month'];
+    }
   }
 
   Future<Map<String, dynamic>> getSummary() async {
@@ -36,6 +57,14 @@ class FinanceService {
       throw Exception('Resposta inválida do resumo financeiro');
     }
 
+    final payload = decoded['payload'];
+    if (payload is Map) {
+      // Nunca reutiliza os mapas automáticos do summary legado.
+      payload['manual_commitments_by_month'] = <String, dynamic>{};
+      payload['pix_sent_by_month'] = <String, dynamic>{};
+      payload['credit_card_commitments_by_month'] = <String, dynamic>{};
+    }
+
     try {
       final totalsResponse = await http.get(
         Uri.parse('${ApiConfig.baseUrl}/finance/monthly-totals'),
@@ -44,28 +73,19 @@ class FinanceService {
 
       if (totalsResponse.statusCode == 200) {
         final totals = jsonDecode(totalsResponse.body);
-        final payload = decoded['payload'];
-
-        if (totals is Map && payload is Map) {
-          if (totals['credit_card_commitments_by_month'] != null) {
-            payload['credit_card_commitments_by_month'] =
-                totals['credit_card_commitments_by_month'];
-          }
-
-          if (totals['manual_commitments_by_month'] != null) {
-            payload['manual_commitments_by_month'] =
-                totals['manual_commitments_by_month'];
-          }
-
-          // Compatibilidade com componentes antigos durante a transição.
-          if (totals['pix_sent_by_month'] != null) {
-            payload['pix_sent_by_month'] = totals['pix_sent_by_month'];
+        if (totals is Map) {
+          _lastMonthlyTotals = Map<String, dynamic>.from(totals);
+          if (payload is Map) {
+            _applyMonthlyTotals(payload, totals);
           }
         }
+      } else if (payload is Map && _lastMonthlyTotals != null) {
+        _applyMonthlyTotals(payload, _lastMonthlyTotals!);
       }
     } catch (_) {
-      // Mantém o summary original se o endpoint complementar estiver
-      // temporariamente indisponível durante o deploy.
+      if (payload is Map && _lastMonthlyTotals != null) {
+        _applyMonthlyTotals(payload, _lastMonthlyTotals!);
+      }
     }
 
     return decoded;
