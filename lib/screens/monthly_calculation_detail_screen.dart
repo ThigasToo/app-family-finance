@@ -40,6 +40,7 @@ class _MonthlyCalculationDetailScreenState
   String? _error;
   Map<String, dynamic>? _data;
   double _manualCommitment = 0;
+  late DateTimeRange _cardRange;
 
   bool get _isCards =>
       widget.type == MonthlyCalculationType.creditCards;
@@ -47,6 +48,7 @@ class _MonthlyCalculationDetailScreenState
   @override
   void initState() {
     super.initState();
+    _cardRange = _fullMonthRange();
     _load();
   }
 
@@ -54,6 +56,16 @@ class _MonthlyCalculationDetailScreenState
   void dispose() {
     _commitmentController.dispose();
     super.dispose();
+  }
+
+  DateTimeRange _fullMonthRange() {
+    final parts = widget.month.split('-');
+    final year = int.parse(parts[0]);
+    final month = int.parse(parts[1]);
+    return DateTimeRange(
+      start: DateTime(year, month, 1),
+      end: DateTime(year, month + 1, 0),
+    );
   }
 
   Future<void> _load() async {
@@ -66,7 +78,11 @@ class _MonthlyCalculationDetailScreenState
 
     try {
       final results = await Future.wait([
-        _financeService.getMonthlyBreakdown(month: widget.month),
+        _financeService.getMonthlyBreakdown(
+          month: widget.month,
+          dateFrom: _isCards ? _cardRange.start : null,
+          dateTo: _isCards ? _cardRange.end : null,
+        ),
         if (!_isCards)
           _financeService.getManualCommitment(month: widget.month),
       ]);
@@ -92,15 +108,40 @@ class _MonthlyCalculationDetailScreenState
     }
   }
 
+  Future<void> _selectCardRange() async {
+    final selected = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020, 1, 1),
+      lastDate: DateTime(DateTime.now().year + 3, 12, 31),
+      initialDateRange: _cardRange,
+      helpText: 'Filtrar lançamentos dos cartões',
+      saveText: 'Aplicar',
+      cancelText: 'Cancelar',
+      confirmText: 'Aplicar',
+    );
+
+    if (selected == null || !mounted) return;
+
+    setState(() => _cardRange = selected);
+    await _load();
+  }
+
+  Future<void> _resetCardRange() async {
+    setState(() => _cardRange = _fullMonthRange());
+    await _load();
+  }
+
   Future<void> _saveManualCommitment() async {
     if (_isSaving) return;
 
-    final normalized = _commitmentController.text
+    var normalized = _commitmentController.text
         .trim()
         .replaceAll('R\$', '')
-        .replaceAll(' ', '')
-        .replaceAll('.', '')
-        .replaceAll(',', '.');
+        .replaceAll(' ', '');
+
+    if (normalized.contains(',')) {
+      normalized = normalized.replaceAll('.', '').replaceAll(',', '.');
+    }
 
     final value = normalized.isEmpty ? 0.0 : double.tryParse(normalized);
 
@@ -130,23 +171,17 @@ class _MonthlyCalculationDetailScreenState
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Valor do mês salvo.'),
-        ),
+        const SnackBar(content: Text('Valor do mês salvo.')),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            e.toString().replaceFirst('Exception: ', ''),
-          ),
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
         ),
       );
     } finally {
-      if (mounted) {
-        setState(() => _isSaving = false);
-      }
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -200,13 +235,11 @@ class _MonthlyCalculationDetailScreenState
     return _items.length;
   }
 
-  String get _title => _isCards
-      ? 'Cartões do mês'
-      : 'Movimentações do mês';
+  String get _title =>
+      _isCards ? 'Cartões do mês' : 'Movimentações do mês';
 
-  IconData get _icon => _isCards
-      ? Icons.credit_card_rounded
-      : Icons.pix_rounded;
+  IconData get _icon =>
+      _isCards ? Icons.credit_card_rounded : Icons.pix_rounded;
 
   String _money(double value) {
     return PrivacyService.instance.valuesVisible.value
@@ -218,13 +251,30 @@ class _MonthlyCalculationDetailScreenState
     if (value == null) return 'Data não informada';
     try {
       final date = DateTime.parse(value.toString());
-      final day = date.day.toString().padLeft(2, '0');
-      final month = date.month.toString().padLeft(2, '0');
-      return '$day/$month/${date.year}';
+      return _shortDate(date);
     } catch (_) {
       return value.toString();
     }
   }
+
+  String _shortDate(DateTime date) {
+    final day = date.day.toString().padLeft(2, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    return '$day/$month/${date.year}';
+  }
+
+  bool get _isFullMonthRange {
+    final full = _fullMonthRange();
+    return _cardRange.start.year == full.start.year &&
+        _cardRange.start.month == full.start.month &&
+        _cardRange.start.day == full.start.day &&
+        _cardRange.end.year == full.end.year &&
+        _cardRange.end.month == full.end.month &&
+        _cardRange.end.day == full.end.day;
+  }
+
+  String get _cardRangeLabel =>
+      '${_shortDate(_cardRange.start)} — ${_shortDate(_cardRange.end)}';
 
   String? _installmentLabel(Map<String, dynamic> item) {
     final current = item['installment_number'];
@@ -276,9 +326,8 @@ class _MonthlyCalculationDetailScreenState
         classification == 'INVESTMENT_REDEMPTION';
   }
 
-  bool _isNeutralMovement(Map<String, dynamic> item) {
-    return _classification(item) == 'INTERNAL_TRANSFER';
-  }
+  bool _isNeutralMovement(Map<String, dynamic> item) =>
+      _classification(item) == 'INTERNAL_TRANSFER';
 
   @override
   Widget build(BuildContext context) {
@@ -341,9 +390,15 @@ class _MonthlyCalculationDetailScreenState
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
         children: [
           _buildSummaryCard(),
+          if (_isCards) ...[
+            const SizedBox(height: 14),
+            _buildCardDateFilter(),
+          ],
           const SizedBox(height: 22),
           Text(
-            _isCards ? 'LANÇAMENTOS DA FATURA' : 'MOVIMENTAÇÕES PARA CONSULTA',
+            _isCards
+                ? 'LANÇAMENTOS NO PERÍODO'
+                : 'MOVIMENTAÇÕES PARA CONSULTA',
             style: TextStyle(
               color: AppTheme.inkSoft.withValues(alpha: 0.9),
               fontSize: 11,
@@ -366,6 +421,64 @@ class _MonthlyCalculationDetailScreenState
             _buildEmptyState()
           else
             ..._items.map(_buildItemCard),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCardDateFilter() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: AppTheme.glassDecoration(radius: 20),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.date_range_rounded,
+            color: AppTheme.primary,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: InkWell(
+              onTap: _selectCardRange,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Período dos lançamentos',
+                      style: TextStyle(
+                        color: AppTheme.inkSoft,
+                        fontSize: 11,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      _cardRangeLabel,
+                      style: const TextStyle(
+                        color: AppTheme.ink,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (!_isFullMonthRange)
+            TextButton(
+              onPressed: _resetCardRange,
+              child: const Text('Mês inteiro'),
+            )
+          else
+            IconButton(
+              onPressed: _selectCardRange,
+              icon: const Icon(Icons.tune_rounded),
+              color: AppTheme.primary,
+              tooltip: 'Alterar período',
+            ),
         ],
       ),
     );
@@ -408,7 +521,7 @@ class _MonthlyCalculationDetailScreenState
                         const SizedBox(height: 2),
                         Text(
                           _isCards
-                              ? 'Fatura calculada pelo ciclo'
+                              ? 'Compras no período selecionado'
                               : 'Consulta das movimentações',
                           style: const TextStyle(
                             color: Colors.white,
@@ -445,19 +558,10 @@ class _MonthlyCalculationDetailScreenState
         ),
         const SizedBox(height: 7),
         Text(
-          '$_count ${_count == 1 ? 'lançamento' : 'lançamentos'} na fatura',
+          '$_count ${_count == 1 ? 'lançamento' : 'lançamentos'} entre ${_shortDate(_cardRange.start)} e ${_shortDate(_cardRange.end)}',
           style: TextStyle(
             color: Colors.white.withValues(alpha: 0.72),
             fontSize: 12.5,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          'Ciclo do dia 5 deste mês até antes do dia 5 do mês seguinte.',
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.62),
-            fontSize: 11.5,
-            height: 1.35,
           ),
         ),
       ],
@@ -604,7 +708,7 @@ class _MonthlyCalculationDetailScreenState
           const SizedBox(height: 10),
           Text(
             _isCards
-                ? 'Nenhum lançamento entrou nesta fatura.'
+                ? 'Nenhum lançamento encontrado neste período.'
                 : 'Nenhuma movimentação encontrada neste mês.',
             textAlign: TextAlign.center,
             style: const TextStyle(
@@ -619,13 +723,11 @@ class _MonthlyCalculationDetailScreenState
   }
 
   Widget _buildItemCard(Map<String, dynamic> item) {
-    final institution =
-        item['institution']?.toString() ?? 'Instituição';
+    final institution = item['institution']?.toString() ?? 'Instituição';
     final accountName = _isCards
         ? item['card_name']?.toString()
         : item['account_name']?.toString();
-    final description =
-        item['description']?.toString() ?? 'Lançamento';
+    final description = item['description']?.toString() ?? 'Lançamento';
     final installment = _installmentLabel(item);
     final amount = _number(item['amount']);
     final positive = !_isCards && _isPositiveMovement(item);
@@ -701,8 +803,7 @@ class _MonthlyCalculationDetailScreenState
                     Text(
                       [
                         institution,
-                        if (accountName != null &&
-                            accountName.trim().isNotEmpty)
+                        if (accountName != null && accountName.trim().isNotEmpty)
                           accountName,
                         if (investmentName != null &&
                             investmentName.trim().isNotEmpty)
