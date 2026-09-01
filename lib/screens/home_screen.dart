@@ -48,9 +48,6 @@ class _HomeScreenState extends State<HomeScreen> {
   List<dynamic> _accounts = [];
   List<dynamic> _investments = [];
 
-  // O backend mantém pix_sent_by_month como campo de compatibilidade.
-  // Nesta tela ele representa o INVERSO do fluxo líquido classificado:
-  // negativo = entrou mais caixa; positivo = saiu mais caixa.
   Map<String, double> _monthlyCashFlowCommitment = {};
   Map<String, double> _cardCommitmentsByMonth = {};
 
@@ -595,12 +592,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
 
   double get _cashFlowSelectedMonth =>
-      -(
-        _monthlyCashFlowCommitment[
-              _selectedMonthKey,
-            ] ??
-            0
-      );
+      -(_monthlyCashFlowCommitment[_selectedMonthKey] ?? 0);
 
 
   double get _positiveCashFlowSelectedMonth =>
@@ -1243,7 +1235,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 alpha: 0.70,
               ),
             ),
-          ),
           child: Row(
             mainAxisSize:
                 MainAxisSize.min,
