@@ -48,7 +48,10 @@ class _HomeScreenState extends State<HomeScreen> {
   List<dynamic> _accounts = [];
   List<dynamic> _investments = [];
 
-  Map<String, double> _pixSentByMonth = {};
+  // O backend mantém pix_sent_by_month como campo de compatibilidade.
+  // Nesta tela ele representa o INVERSO do fluxo líquido classificado:
+  // negativo = entrou mais caixa; positivo = saiu mais caixa.
+  Map<String, double> _monthlyCashFlowCommitment = {};
   Map<String, double> _cardCommitmentsByMonth = {};
 
   String? _updatedAt;
@@ -221,7 +224,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final payload =
           summary['payload'] ?? {};
 
-      final pixByMonth =
+      final cashFlowCommitment =
           _parseMonthlyMap(
         payload['pix_sent_by_month'],
       );
@@ -241,7 +244,8 @@ class _HomeScreenState extends State<HomeScreen> {
         _investments =
             payload['investments'] ?? [];
 
-        _pixSentByMonth = pixByMonth;
+        _monthlyCashFlowCommitment =
+            cashFlowCommitment;
         _cardCommitmentsByMonth =
             cardByMonth;
 
@@ -590,20 +594,41 @@ class _HomeScreenState extends State<HomeScreen> {
       0;
 
 
-  double get _pixSelectedMonth =>
-      _pixSentByMonth[
-          _selectedMonthKey] ??
-      0;
+  double get _cashFlowSelectedMonth =>
+      -(
+        _monthlyCashFlowCommitment[
+              _selectedMonthKey,
+            ] ??
+            0
+      );
+
+
+  double get _positiveCashFlowSelectedMonth =>
+      _cashFlowSelectedMonth > 0
+          ? _cashFlowSelectedMonth
+          : 0;
+
+
+  double get _negativeCashFlowSelectedMonth =>
+      _cashFlowSelectedMonth < 0
+          ? -_cashFlowSelectedMonth
+          : 0;
+
+
+  double get _receivableSelectedMonth =>
+      _expectedIncome +
+      _positiveCashFlowSelectedMonth;
 
 
   double get _committedSelectedMonth =>
       _cardSelectedMonth +
-      _pixSelectedMonth;
+      _negativeCashFlowSelectedMonth;
 
 
   double get _availableSelectedMonth =>
-      _expectedIncome -
-      _committedSelectedMonth;
+      _expectedIncome +
+      _cashFlowSelectedMonth -
+      _cardSelectedMonth;
 
 
   String get _firstName {
@@ -765,7 +790,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 30),
                   _buildSectionTitle(
-                    'Compromissos do mês',
+                    'Compromissos e fluxo do mês',
                   ),
                   const SizedBox(height: 12),
                   _buildFinancialCard(
@@ -787,13 +812,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 12),
                   _buildFinancialCard(
                     icon:
-                        Icons.pix_rounded,
+                        Icons.swap_vert_circle_rounded,
                     title:
-                        'PIX enviados em $_selectedMonthName',
+                        'Fluxo de caixa em $_selectedMonthName',
                     value:
-                        _pixSelectedMonth,
+                        _cashFlowSelectedMonth,
                     subtitle:
-                        'Calculado automaticamente pelas movimentações bancárias',
+                        'Entradas, saídas e aplicações ou resgates de investimentos',
                     automatic: true,
                     onTap: () {
                       _openMonthlyCalculation(
@@ -1097,7 +1122,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           _buildAvailableDetail(
                         label: 'A receber',
                         value:
-                            _expectedIncome,
+                            _receivableSelectedMonth,
                       ),
                     ),
                     Container(
