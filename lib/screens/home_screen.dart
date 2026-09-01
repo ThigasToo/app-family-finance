@@ -15,6 +15,7 @@ import 'connect_bank_screen.dart';
 import 'credit_cards_screen.dart';
 import 'investments_screen.dart';
 import 'login_screen.dart';
+import 'monthly_calculation_detail_screen.dart';
 import 'monthly_planning_screen.dart';
 import 'profile_screen.dart';
 
@@ -64,10 +65,6 @@ class _HomeScreenState extends State<HomeScreen> {
       'home_values_visible';
 
 
-  // =========================================================
-  // INIT
-  // =========================================================
-
   @override
   void initState() {
     super.initState();
@@ -81,10 +78,6 @@ class _HomeScreenState extends State<HomeScreen> {
     await _loadUserAndSummary();
   }
 
-
-  // =========================================================
-  // PRIVACIDADE
-  // =========================================================
 
   Future<void> _loadPrivacyPreference() async {
     final saved = await _storage.read(
@@ -165,10 +158,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
 
-  // =========================================================
-  // USER
-  // =========================================================
-
   Future<void> _loadUserAndSummary() async {
     final user =
         await _authService.getCurrentUser();
@@ -196,10 +185,6 @@ class _HomeScreenState extends State<HomeScreen> {
     await _loadSummary();
   }
 
-
-  // =========================================================
-  // SUMMARY
-  // =========================================================
 
   Map<String, double> _parseMonthlyMap(
     dynamic raw,
@@ -275,10 +260,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
 
-  // =========================================================
-  // MÊS
-  // =========================================================
-
   String get _monthStorageKey {
     final month =
         _selectedMonth.month
@@ -320,6 +301,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
 
+  String get _selectedMonthLabel =>
+      '$_selectedMonthName ${_selectedMonth.year}';
+
+
   Future<void> _previousMonth() async {
     setState(() {
       _selectedMonth = DateTime(
@@ -343,10 +328,6 @@ class _HomeScreenState extends State<HomeScreen> {
     await _loadMonthlyPlanning();
   }
 
-
-  // =========================================================
-  // PLANEJAMENTO DE RECEITAS
-  // =========================================================
 
   Future<void> _loadMonthlyPlanning() async {
     final salary =
@@ -436,9 +417,21 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
 
-  // =========================================================
-  // REFRESH
-  // =========================================================
+  Future<void> _openMonthlyCalculation(
+    MonthlyCalculationType type,
+  ) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            MonthlyCalculationDetailScreen(
+          month: _selectedMonthKey,
+          monthLabel: _selectedMonthLabel,
+          type: type,
+        ),
+      ),
+    );
+  }
+
 
   Future<void> _handleRefresh() async {
     if (_isRefreshing) return;
@@ -493,10 +486,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
 
-  // =========================================================
-  // CONEXÃO
-  // =========================================================
-
   Future<void> _handleConnectAccount() async {
     final connected =
         await Navigator.of(context)
@@ -512,10 +501,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-
-  // =========================================================
-  // TOTAIS
-  // =========================================================
 
   double get _totalAccountBalance {
     double total = 0;
@@ -633,10 +618,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return name.split(' ').first;
   }
 
-
-  // =========================================================
-  // BUILD
-  // =========================================================
 
   @override
   Widget build(
@@ -797,17 +778,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     subtitle:
                         'Calculado automaticamente pelas compras e parcelas',
                     automatic: true,
-                    onTap: () async {
-                      await Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              const CreditCardsScreen(),
-                        ),
+                    onTap: () {
+                      _openMonthlyCalculation(
+                        MonthlyCalculationType.creditCards,
                       );
-
-                      if (mounted) {
-                        await _loadSummary();
-                      }
                     },
                   ),
                   const SizedBox(height: 12),
@@ -821,17 +795,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     subtitle:
                         'Calculado automaticamente pelas movimentações bancárias',
                     automatic: true,
-                    onTap: () async {
-                      await Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              const AccountsScreen(),
-                        ),
+                    onTap: () {
+                      _openMonthlyCalculation(
+                        MonthlyCalculationType.pix,
                       );
-
-                      if (mounted) {
-                        await _loadSummary();
-                      }
                     },
                   ),
                   const SizedBox(height: 12),
@@ -870,10 +837,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-
-  // =========================================================
-  // HEADER
-  // =========================================================
 
   Widget _buildHeader() {
     return Row(
@@ -1010,10 +973,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-
-  // =========================================================
-  // HERO
-  // =========================================================
 
   Widget _buildAvailableMonthCard() {
     return ClipRRect(
@@ -1236,10 +1195,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
 
-  // =========================================================
-  // SYNC
-  // =========================================================
-
   Widget _buildSyncRow() {
     return Row(
       children: [
@@ -1335,10 +1290,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
 
-  // =========================================================
-  // RECEITAS
-  // =========================================================
-
   Widget _buildExpectedIncomeCard() {
     return _GlassSurface(
       radius: 23,
@@ -1429,10 +1380,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-
-  // =========================================================
-  // FINANCIAL CARD
-  // =========================================================
 
   Widget _buildFinancialCard({
     required IconData icon,
