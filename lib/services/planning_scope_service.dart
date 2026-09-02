@@ -8,6 +8,12 @@ class PlanningScopeService {
   static const String _salaryPrefix = 'expected_salary_';
   static const String _receiptsPrefix = 'expected_receipts_';
 
+  Future<int?> getActiveUserId() async {
+    final value = await _storage.read(key: _activeUserKey);
+    if (value == null || value.isEmpty) return null;
+    return int.tryParse(value);
+  }
+
   Future<void> activateUser(int userId) async {
     final currentId = userId.toString();
     final activeId = await _storage.read(key: _activeUserKey);
