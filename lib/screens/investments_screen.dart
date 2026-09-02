@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../services/finance_service.dart';
+import '../services/planning_scope_service.dart';
 import '../widgets/finance_ui.dart';
 import '../widgets/privacy_finance_ui.dart';
 
@@ -22,38 +23,71 @@ class InvestmentsScreen extends StatefulWidget {
 class _InvestmentsScreenState
     extends State<InvestmentsScreen> {
   final _financeService = FinanceService();
+  final _planningScopeService = PlanningScopeService();
 
   bool _isLoading = true;
   bool _isRefreshing = false;
 
   String? _errorMessage;
+  int? _activeUserId;
 
   List<dynamic> _investments = [];
 
   @override
   void initState() {
     super.initState();
-    _loadInvestments();
+    _initializeInvestments();
+  }
+
+  Future<void> _initializeInvestments() async {
+    _activeUserId = await _planningScopeService.getActiveUserId();
+
+    if (_activeUserId != null) {
+      final cachedSummary = await _financeService.getCachedSummary(
+        userId: _activeUserId!,
+      );
+
+      if (cachedSummary != null) {
+        _applySummary(cachedSummary);
+      }
+    }
+
+    // Stale-while-revalidate: se houver snapshot, a tela já é exibida acima.
+    // A rede atualiza os investimentos e sobrescreve o snapshot ao concluir.
+    await _loadInvestments();
+  }
+
+  void _applySummary(Map<String, dynamic> summary) {
+    final investments = summary['payload']?['investments'] ?? [];
+
+    if (!mounted) return;
+
+    setState(() {
+      _investments = List<dynamic>.from(investments);
+      _isLoading = false;
+      _errorMessage = null;
+    });
   }
 
   Future<void> _loadInvestments() async {
     try {
-      final summary =
-          await _financeService.getSummary();
+      final summary = await _financeService.getSummary(
+        snapshotUserId: _activeUserId,
+      );
 
-      if (!mounted) return;
-
-      setState(() {
-        _investments =
-            summary['payload']
-                    ?['investments'] ??
-                [];
-
-        _isLoading = false;
-        _errorMessage = null;
-      });
+      _applySummary(summary);
     } catch (_) {
       if (!mounted) return;
+
+      // Se o snapshot já carregou dados, uma falha de rede não deve substituir
+      // o conteúdo útil por uma tela de erro.
+      if (_investments.isNotEmpty) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = null;
+        });
+        return;
+      }
 
       setState(() {
         _isLoading = false;
