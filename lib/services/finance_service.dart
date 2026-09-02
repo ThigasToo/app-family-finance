@@ -26,57 +26,6 @@ class FinanceService {
     return '${value.year}-$m-$d';
   }
 
-  void _normalizeCardBilling(Map<String, dynamic> decoded) {
-    final payload = decoded['payload'];
-    if (payload is! Map) return;
-
-    final accounts = payload['accounts'];
-    if (accounts is! List) return;
-
-    for (final rawAccount in accounts) {
-      if (rawAccount is! Map) continue;
-      if (rawAccount['type']?.toString().toUpperCase() != 'CREDIT') continue;
-
-      final nextDue = rawAccount['next_due'];
-      if (nextDue is! Map) continue;
-
-      final dueDate = nextDue['due_date'];
-      if (dueDate == null) continue;
-
-      final rawCreditData = rawAccount['creditData'];
-      final creditData = rawCreditData is Map
-          ? Map<String, dynamic>.from(rawCreditData)
-          : <String, dynamic>{};
-
-      creditData['balanceDueDate'] = dueDate;
-      creditData['balanceDueDateSource'] = nextDue['source'];
-      creditData['balanceDueDateEstimated'] = nextDue['estimated'] == true;
-
-      if (nextDue['source'] == 'bill' && nextDue['minimum_payment'] != null) {
-        creditData['minimumPayment'] = nextDue['minimum_payment'];
-      }
-
-      rawAccount['creditData'] = creditData;
-    }
-  }
-
-  void _normalizeProjectedCardItems(Map<String, dynamic> data) {
-    final section = data['credit_cards'];
-    if (section is! Map) return;
-    final items = section['items'];
-    if (items is! List) return;
-
-    for (final raw in items) {
-      if (raw is! Map || raw['projected'] != true) continue;
-      final description = raw['description']?.toString().trim() ?? '';
-      if (!description.toUpperCase().contains('PROJETADO')) {
-        raw['description'] = description.isEmpty
-            ? 'PROJETADO'
-            : '$description • PROJETADO';
-      }
-    }
-  }
-
   void _applyMonthlyTotals(
     Map<dynamic, dynamic> payload,
     Map<dynamic, dynamic> totals,
@@ -117,8 +66,6 @@ class FinanceService {
     if (decoded is! Map<String, dynamic>) {
       throw Exception('Resposta inválida do resumo financeiro');
     }
-
-    _normalizeCardBilling(decoded);
 
     final payload = decoded['payload'];
     if (payload is Map) {
@@ -186,8 +133,6 @@ class FinanceService {
     if (data is! Map<String, dynamic>) {
       throw Exception('Resposta inválida do detalhamento mensal');
     }
-
-    _normalizeProjectedCardItems(data);
     return data;
   }
 
