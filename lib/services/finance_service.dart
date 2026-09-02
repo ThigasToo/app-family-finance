@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -5,11 +6,15 @@ import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import 'auth_service.dart';
 import 'finance_snapshot_service.dart';
+import 'monthly_snapshot_service.dart';
+import 'planning_scope_service.dart';
 
 
 class FinanceService {
   final _authService = AuthService();
   final _snapshotService = FinanceSnapshotService();
+  final _monthlySnapshotService = MonthlySnapshotService();
+  final _planningScopeService = PlanningScopeService();
 
   static Map<String, dynamic>? _lastMonthlyTotals;
 
@@ -118,7 +123,7 @@ class FinanceService {
     return decoded;
   }
 
-  Future<Map<String, dynamic>> getMonthlyBreakdown({
+  Future<Map<String, dynamic>> _fetchMonthlyBreakdown({
     required String month,
     DateTime? dateFrom,
     DateTime? dateTo,
@@ -153,7 +158,76 @@ class FinanceService {
     return data;
   }
 
-  Future<Map<String, dynamic>> getCardPeriod({
+  Future<void> _refreshMonthlyBreakdownSnapshot({
+    required int userId,
+    required String month,
+    DateTime? dateFrom,
+    DateTime? dateTo,
+  }) async {
+    try {
+      final data = await _fetchMonthlyBreakdown(
+        month: month,
+        dateFrom: dateFrom,
+        dateTo: dateTo,
+      );
+      await _monthlySnapshotService.saveBreakdown(
+        userId: userId,
+        month: month,
+        dateFrom: dateFrom,
+        dateTo: dateTo,
+        data: data,
+      );
+    } catch (_) {}
+  }
+
+  Future<Map<String, dynamic>> getMonthlyBreakdown({
+    required String month,
+    DateTime? dateFrom,
+    DateTime? dateTo,
+  }) async {
+    final userId = await _planningScopeService.getActiveUserId();
+
+    if (userId != null) {
+      final cached = await _monthlySnapshotService.getBreakdown(
+        userId: userId,
+        month: month,
+        dateFrom: dateFrom,
+        dateTo: dateTo,
+      );
+
+      if (cached != null) {
+        unawaited(
+          _refreshMonthlyBreakdownSnapshot(
+            userId: userId,
+            month: month,
+            dateFrom: dateFrom,
+            dateTo: dateTo,
+          ),
+        );
+        return cached;
+      }
+    }
+
+    final data = await _fetchMonthlyBreakdown(
+      month: month,
+      dateFrom: dateFrom,
+      dateTo: dateTo,
+    );
+
+    if (userId != null) {
+      await _monthlySnapshotService.saveBreakdown(
+        userId: userId,
+        month: month,
+        dateFrom: dateFrom,
+        dateTo: dateTo,
+        data: data,
+      );
+    }
+
+    return data;
+  }
+
+  Future<Map<String, dynamic>> _fetchCardPeriod({
     required String month,
   }) async {
     final headers = await _authenticatedHeaders();
@@ -169,6 +243,42 @@ class FinanceService {
     final data = jsonDecode(response.body);
     if (data is! Map<String, dynamic>) {
       throw Exception('Resposta inválida do período dos cartões');
+    }
+    return data;
+  }
+
+  Future<Map<String, dynamic>> getCardPeriod({
+    required String month,
+  }) async {
+    final userId = await _planningScopeService.getActiveUserId();
+
+    if (userId != null) {
+      final cached = await _monthlySnapshotService.getCardPeriod(
+        userId: userId,
+        month: month,
+      );
+      if (cached != null) {
+        unawaited(() async {
+          try {
+            final fresh = await _fetchCardPeriod(month: month);
+            await _monthlySnapshotService.saveCardPeriod(
+              userId: userId,
+              month: month,
+              data: fresh,
+            );
+          } catch (_) {}
+        }());
+        return cached;
+      }
+    }
+
+    final data = await _fetchCardPeriod(month: month);
+    if (userId != null) {
+      await _monthlySnapshotService.saveCardPeriod(
+        userId: userId,
+        month: month,
+        data: data,
+      );
     }
     return data;
   }
@@ -201,6 +311,16 @@ class FinanceService {
     if (data is! Map<String, dynamic>) {
       throw Exception('Resposta inválida ao salvar período dos cartões');
     }
+
+    final userId = await _planningScopeService.getActiveUserId();
+    if (userId != null) {
+      await _monthlySnapshotService.saveCardPeriod(
+        userId: userId,
+        month: month,
+        data: data,
+      );
+    }
+
     return data;
   }
 
@@ -222,10 +342,20 @@ class FinanceService {
     if (data is! Map<String, dynamic>) {
       throw Exception('Resposta inválida ao restaurar período dos cartões');
     }
+
+    final userId = await _planningScopeService.getActiveUserId();
+    if (userId != null) {
+      await _monthlySnapshotService.saveCardPeriod(
+        userId: userId,
+        month: month,
+        data: data,
+      );
+    }
+
     return data;
   }
 
-  Future<double> getManualCommitment({
+  Future<double> _fetchManualCommitment({
     required String month,
   }) async {
     final headers = await _authenticatedHeaders();
@@ -243,6 +373,42 @@ class FinanceService {
     final value = data['amount'];
     if (value is num) return value.toDouble();
     return double.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  Future<double> getManualCommitment({
+    required String month,
+  }) async {
+    final userId = await _planningScopeService.getActiveUserId();
+
+    if (userId != null) {
+      final cached = await _monthlySnapshotService.getManualCommitment(
+        userId: userId,
+        month: month,
+      );
+      if (cached != null) {
+        unawaited(() async {
+          try {
+            final fresh = await _fetchManualCommitment(month: month);
+            await _monthlySnapshotService.saveManualCommitment(
+              userId: userId,
+              month: month,
+              amount: fresh,
+            );
+          } catch (_) {}
+        }());
+        return cached;
+      }
+    }
+
+    final value = await _fetchManualCommitment(month: month);
+    if (userId != null) {
+      await _monthlySnapshotService.saveManualCommitment(
+        userId: userId,
+        month: month,
+        amount: value,
+      );
+    }
+    return value;
   }
 
   Future<double> saveManualCommitment({
@@ -274,8 +440,20 @@ class FinanceService {
     _lastMonthlyTotals = null;
     final data = jsonDecode(response.body);
     final value = data is Map ? data['amount'] : null;
-    if (value is num) return value.toDouble();
-    return double.tryParse(value?.toString() ?? '') ?? amount;
+    final saved = value is num
+        ? value.toDouble()
+        : double.tryParse(value?.toString() ?? '') ?? amount;
+
+    final userId = await _planningScopeService.getActiveUserId();
+    if (userId != null) {
+      await _monthlySnapshotService.saveManualCommitment(
+        userId: userId,
+        month: month,
+        amount: saved,
+      );
+    }
+
+    return saved;
   }
 
   Future<Map<String, dynamic>> refresh() async {
