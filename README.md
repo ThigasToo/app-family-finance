@@ -1,85 +1,85 @@
-# Family Finance — Flutter App
+# 📱 Family Finance — Flutter App
 
 Aplicativo mobile do **Family Finance**, um projeto open source para organização financeira pessoal e familiar.
 
 O aplicativo se conecta a um backend FastAPI próprio, que por sua vez utiliza:
 
-- **Pluggy**
-- **MeuPluggy**
-- **Open Finance**
-- **Supabase/PostgreSQL**
-- **Render**
+- 🔌 **Pluggy**
+- 🏦 **MeuPluggy**
+- 🏛️ **Open Finance**
+- 🗄️ **Supabase / PostgreSQL**
+- ☁️ **Render**
 
 A ideia é permitir que qualquer pessoa possa clonar o projeto e montar sua própria instância para uso pessoal ou da família.
 
 ---
 
-# Funcionalidades
+# ✨ Funcionalidades
 
 O aplicativo possui recursos como:
 
-- cadastro e login;
-- autenticação persistente;
-- biometria;
-- visualização de contas bancárias;
-- cartões de crédito;
-- movimentações;
-- PIX;
-- investimentos;
-- investimentos manuais;
-- planejamento mensal;
-- salário esperado;
-- outros recebimentos esperados;
-- compromissos manuais;
-- períodos personalizados para cartões;
-- observações de cartões;
-- ocultação de valores financeiros;
-- conexão de instituições pela Pluggy.
+- 👤 cadastro e login;
+- 🔐 autenticação persistente;
+- 👆 biometria;
+- 🏦 visualização de contas bancárias;
+- 💳 cartões de crédito;
+- 🔄 movimentações;
+- 🟢 PIX;
+- 📈 investimentos;
+- ✍️ investimentos manuais;
+- 📅 planejamento mensal;
+- 💵 salário esperado;
+- ➕ outros recebimentos esperados;
+- 📝 compromissos manuais;
+- 🗓️ períodos personalizados para cartões;
+- 📌 observações de cartões;
+- 👁️ ocultação de valores financeiros;
+- 🔌 conexão de instituições pela Pluggy.
 
 ---
 
-# Arquitetura
+# 🧱 Arquitetura
 
 ```text
 ┌────────────────────┐
-│     Flutter App    │
+│     📱 Flutter App │
 │ Android / iOS      │
 └─────────┬──────────┘
           │
           │ HTTPS
           ▼
 ┌────────────────────┐
-│ Backend FastAPI    │
-│ Render             │
+│ ⚡ Backend FastAPI │
+│ ☁️ Render          │
 └─────────┬──────────┘
           │
      ┌────┴─────┐
      ▼          ▼
- Supabase     Pluggy
-                │
-                ▼
-            MeuPluggy
-                │
-                ▼
-          Open Finance
+🗄️ Supabase    🔌 Pluggy
+                  │
+                  ▼
+              🏦 MeuPluggy
+                  │
+                  ▼
+            🏛️ Open Finance
 ```
 
-O Flutter **não acessa diretamente o PostgreSQL nem utiliza o CLIENT_SECRET da Pluggy**.
+> 🔐 O Flutter **não acessa diretamente o PostgreSQL nem utiliza o CLIENT_SECRET da Pluggy**.
 
 Toda comunicação sensível passa pelo backend.
 
 ---
 
-# 1. Pré-requisitos
+# 1. 🧰 Pré-requisitos
 
 Instale:
 
-- Git
-- Flutter SDK
-- Android Studio
-- Android SDK
-- VS Code ou Android Studio
-- um dispositivo Android ou emulador
+- ✅ Git
+- ✅ Flutter SDK
+- ✅ Android Studio
+- ✅ Android SDK
+- ✅ VS Code ou Android Studio
+- ✅ um dispositivo Android ou emulador
 
 Confira sua instalação:
 
@@ -91,7 +91,7 @@ Resolva os itens obrigatórios indicados antes de continuar.
 
 ---
 
-# 2. Clone o projeto
+# 2. 📥 Clone o projeto
 
 Faça um fork deste repositório.
 
@@ -108,20 +108,22 @@ Instale as dependências:
 flutter pub get
 ```
 
+✅ Projeto Flutter preparado.
+
 ---
 
-# 3. Configure primeiro o backend
+# 3. ⚡ Configure primeiro o backend
 
 Antes de rodar o aplicativo, sua API precisa estar funcionando.
 
 Siga o README do repositório backend para configurar:
 
 ```text
-Pluggy
-MeuPluggy
-Supabase
-Render
-FastAPI
+🔌 Pluggy
+🏦 MeuPluggy
+🗄️ Supabase
+☁️ Render
+⚡ FastAPI
 ```
 
 No final, você deverá possuir uma URL semelhante a:
@@ -140,7 +142,7 @@ antes de continuar.
 
 ---
 
-# 4. Configure a URL da API
+# 4. 🔗 Configure a URL da API
 
 Abra:
 
@@ -166,11 +168,11 @@ class ApiConfig {
 }
 ```
 
-Essa é uma das alterações obrigatórias para quem fizer fork do projeto.
+> ⚠️ Essa é uma das alterações obrigatórias para quem fizer fork do projeto.
 
 ---
 
-# 5. Rodando localmente
+# 5. ▶️ Rodando localmente
 
 Com um emulador ou celular conectado:
 
@@ -192,11 +194,11 @@ flutter run -d ID_DO_DISPOSITIVO
 
 ---
 
-# 6. Backend local
+# 6. 🖥️ Backend local
 
 Se quiser utilizar o FastAPI localmente em vez do Render:
 
-### Android Emulator
+### 🤖 Android Emulator
 
 Use:
 
@@ -205,7 +207,7 @@ static const String baseUrl =
     "http://10.0.2.2:8000";
 ```
 
-### Flutter Desktop / Chrome
+### 🌐 Flutter Desktop / Chrome
 
 Normalmente:
 
@@ -214,7 +216,7 @@ static const String baseUrl =
     "http://127.0.0.1:8000";
 ```
 
-### Celular físico
+### 📱 Celular físico
 
 O celular precisa alcançar o computador na rede local.
 
@@ -229,7 +231,7 @@ O endereço dependerá do IP local do seu computador.
 
 ---
 
-# 7. MeuPluggy
+# 7. 🏦 MeuPluggy
 
 Para utilizar dados financeiros reais de forma pessoal, crie uma conta no MeuPluggy.
 
@@ -244,7 +246,7 @@ No MeuPluggy:
 Exemplo:
 
 ```text
-MeuPluggy
+🏦 MeuPluggy
 ├── Banco A
 ├── Banco B
 └── Banco C
@@ -258,15 +260,15 @@ MeuPluggy
 
 ---
 
-# 8. Dashboard Pluggy
+# 8. 🔌 Dashboard Pluggy
 
 No Dashboard de desenvolvedores da Pluggy:
 
-1. crie sua Application em Development;
-2. configure o conector MeuPluggy;
-3. copie o `CLIENT_ID`;
-4. copie o `CLIENT_SECRET`;
-5. coloque essas duas informações **somente no backend**.
+1. ➕ crie sua Application em Development;
+2. 🏦 configure o conector MeuPluggy;
+3. 📋 copie o `CLIENT_ID`;
+4. 🔐 copie o `CLIENT_SECRET`;
+5. ⚡ coloque essas duas informações **somente no backend**.
 
 Nunca faça isso no Flutter:
 
@@ -274,11 +276,11 @@ Nunca faça isso no Flutter:
 const clientSecret = "...";
 ```
 
-O aplicativo deve receber somente um **Connect Token temporário** criado pelo backend.
+> 🚨 O aplicativo deve receber somente um **Connect Token temporário** criado pelo backend.
 
 ---
 
-# 9. Conectando uma instituição pelo aplicativo
+# 9. 🔗 Conectando uma instituição pelo aplicativo
 
 Depois de criar uma conta no Family Finance:
 
@@ -291,56 +293,56 @@ Depois de criar uma conta no Family Finance:
 7. escolha a conexão bancária desejada;
 8. aguarde a sincronização.
 
-Fluxo:
+### 🔄 Fluxo
 
 ```text
-Flutter
+📱 Flutter
    │
    ▼
-Backend
+⚡ Backend
    │
    ▼
-Pluggy Connect Token
+🎫 Pluggy Connect Token
    │
    ▼
-Flutter WebView
+🌐 Flutter WebView
    │
    ▼
-MeuPluggy
+🏦 MeuPluggy
    │
    ▼
-Item ID
+🆔 Item ID
    │
    ▼
-Backend
+⚡ Backend
    │
    ▼
-Dados sincronizados
+💾 Dados sincronizados
 ```
 
 ---
 
-# 10. Por que utilizar MeuPluggy?
+# 10. 💡 Por que utilizar MeuPluggy?
 
 O objetivo do MeuPluggy é permitir que o próprio usuário controle suas conexões e consentimentos financeiros.
 
 Isso é especialmente interessante para projetos pessoais porque permite separar:
 
 ```text
-Consentimento bancário
+🏦 Consentimento bancário
         ↓
 MeuPluggy
         ↓
-Aplicação do desenvolvedor
+🔌 Aplicação do desenvolvedor
         ↓
-Family Finance
+💰 Family Finance
 ```
 
 Assim, o Family Finance não precisa implementar diretamente o fluxo de autenticação específico de cada instituição.
 
 ---
 
-# 11. Dados locais
+# 11. 📦 Dados locais
 
 Algumas informações auxiliares são armazenadas localmente no aparelho através de:
 
@@ -350,27 +352,27 @@ FlutterSecureStorage
 
 Por exemplo:
 
-- token de autenticação;
-- preferências locais;
-- alguns dados de planejamento;
-- aliases;
-- observações auxiliares.
+- 🔑 token de autenticação;
+- ⚙️ preferências locais;
+- 📅 alguns dados de planejamento;
+- 🏷️ aliases;
+- 📝 observações auxiliares.
 
 Informações financeiras sincronizadas ficam sob responsabilidade do backend/banco configurado pelo projeto.
 
 ---
 
-# 12. Privacidade
+# 12. 👁️ Privacidade
 
 O aplicativo possui opção para ocultar valores financeiros.
 
 Além disso, utiliza autenticação local/biometria em dispositivos compatíveis.
 
-Mesmo assim, este é um projeto open source e cada pessoa responsável por seu próprio fork deve revisar os requisitos de segurança antes de distribuir o aplicativo para terceiros.
+> 🔐 Mesmo assim, este é um projeto open source e cada pessoa responsável por seu próprio fork deve revisar os requisitos de segurança antes de distribuir o aplicativo para terceiros.
 
 ---
 
-# 13. Gerando APK
+# 13. 📦 Gerando APK
 
 Para gerar uma versão Android:
 
@@ -390,9 +392,11 @@ Para testes rápidos também é possível:
 flutter build apk --debug
 ```
 
+🎉 O aplicativo estará pronto para instalação.
+
 ---
 
-# 14. Instalação no Android
+# 14. 📲 Instalação no Android
 
 Copie o APK para o celular e instale.
 
@@ -406,36 +410,36 @@ para o aplicativo utilizado na instalação.
 
 ---
 
-# 15. Atenção antes de distribuir
+# 15. ⚠️ Atenção antes de distribuir
 
 O projeto original ainda deve ser personalizado por quem fizer o fork.
 
 Revise principalmente:
 
 ```text
-Nome do aplicativo
-Ícone
-applicationId Android
-Bundle Identifier iOS
-URL do backend
-assinatura Android
-política de privacidade
+🏷️ Nome do aplicativo
+🎨 Ícone
+🤖 applicationId Android
+🍎 Bundle Identifier iOS
+🔗 URL do backend
+🔐 assinatura Android
+📜 política de privacidade
 ```
 
-Não publique um aplicativo na Play Store utilizando configuração de assinatura de desenvolvimento/debug.
+> 🚨 Não publique um aplicativo na Play Store utilizando configuração de assinatura de desenvolvimento/debug.
 
 ---
 
-# 16. Estrutura principal
+# 16. 📂 Estrutura principal
 
 ```text
 app-family-finance/
 │
-├── android/
-├── ios/
-├── assets/
+├── 🤖 android/
+├── 🍎 ios/
+├── 🎨 assets/
 │
-├── lib/
+├── 📁 lib/
 │   ├── config/
 │   ├── models/
 │   ├── screens/
@@ -450,7 +454,7 @@ app-family-finance/
 
 ---
 
-# 17. Dependências principais
+# 17. 📚 Dependências principais
 
 O projeto utiliza Flutter/Dart e bibliotecas como:
 
@@ -467,7 +471,7 @@ O Pluggy Connect é aberto dentro do fluxo mobile através de WebView.
 
 ---
 
-# 18. Atualizando seu fork
+# 18. 🔄 Atualizando seu fork
 
 Para receber atualizações do projeto original, configure o repositório original como `upstream`.
 
@@ -488,22 +492,22 @@ Resolva eventuais conflitos antes de compilar novamente.
 
 ---
 
-# 19. Stack gratuita sugerida
+# 19. 🆓 Stack gratuita sugerida
 
 Para um projeto pessoal/familiar:
 
 ```text
-GitHub
+🐙 GitHub
    │
-   ├── Backend FastAPI
+   ├── ⚡ Backend FastAPI
    │        │
-   │        ├── Render Free
-   │        ├── Supabase Free
-   │        └── Pluggy / MeuPluggy
+   │        ├── ☁️ Render Free
+   │        ├── 🗄️ Supabase Free
+   │        └── 🔌 Pluggy / MeuPluggy
    │
-   └── Flutter
+   └── 📱 Flutter
             │
-            └── APK instalado nos celulares
+            └── 📦 APK instalado nos celulares
 ```
 
 Não é necessário manter um servidor dentro de casa.
@@ -512,33 +516,33 @@ O celular acessa diretamente a URL pública do backend.
 
 ---
 
-# 20. Observação sobre serviços gratuitos
+# 20. ⚠️ Observação sobre serviços gratuitos
 
 Planos gratuitos podem possuir:
 
-- limites de uso;
-- limites de requisições;
-- suspensão por inatividade;
-- tempo maior no primeiro acesso;
-- mudanças futuras de política.
+- 📊 limites de uso;
+- 🔢 limites de requisições;
+- 💤 suspensão por inatividade;
+- ⏳ tempo maior no primeiro acesso;
+- 🔄 mudanças futuras de política.
 
 Por isso, consulte sempre a documentação atual dos serviços utilizados.
 
 O projeto é adequado principalmente para:
 
 ```text
-uso pessoal
-uso familiar
-aprendizado
-hobby
-prototipação
+👤 uso pessoal
+👨‍👩‍👧‍👦 uso familiar
+📚 aprendizado
+🛠️ hobby
+🧪 prototipação
 ```
 
 Para uso comercial, revise a infraestrutura e os planos dos provedores.
 
 ---
 
-# 21. Segurança
+# 21. 🔒 Segurança
 
 Nunca coloque no Flutter:
 
@@ -554,58 +558,58 @@ Essas informações pertencem exclusivamente ao backend.
 O aplicativo deve conhecer apenas:
 
 ```text
-URL pública do backend
-token JWT do usuário
-Connect Token temporário
+🔗 URL pública do backend
+🎫 token JWT do usuário
+🔌 Connect Token temporário
 ```
 
 ---
 
-# 22. Fluxo completo de instalação
+# 22. 🚀 Fluxo completo de instalação
 
 Para uma nova família replicar o projeto:
 
 ```text
-1. Fork backend
-       ↓
-2. Criar Supabase
-       ↓
-3. Criar MeuPluggy
-       ↓
-4. Conectar bancos ao MeuPluggy
-       ↓
-5. Criar Pluggy Dashboard
-       ↓
-6. Criar Application Development
-       ↓
-7. Habilitar MeuPluggy
-       ↓
-8. Configurar CLIENT_ID/CLIENT_SECRET
-       ↓
-9. Deploy backend no Render
-       ↓
-10. Testar /health
-       ↓
-11. Fork Flutter
-       ↓
-12. Alterar ApiConfig.baseUrl
-       ↓
-13. flutter pub get
-       ↓
-14. flutter run
-       ↓
-15. Criar usuário
-       ↓
-16. Conectar MeuPluggy
-       ↓
-17. Sincronizar contas
-       ↓
-18. Gerar APK
+1.  🐙 Fork backend
+        ↓
+2.  🗄️ Criar Supabase
+        ↓
+3.  🏦 Criar MeuPluggy
+        ↓
+4.  🔗 Conectar bancos ao MeuPluggy
+        ↓
+5.  🔌 Criar Pluggy Dashboard
+        ↓
+6.  🧪 Criar Application Development
+        ↓
+7.  ✅ Habilitar MeuPluggy
+        ↓
+8.  🔐 Configurar CLIENT_ID / CLIENT_SECRET
+        ↓
+9.  ☁️ Deploy backend no Render
+        ↓
+10. ❤️ Testar /health
+        ↓
+11. 🐙 Fork Flutter
+        ↓
+12. 🔗 Alterar ApiConfig.baseUrl
+        ↓
+13. 📦 flutter pub get
+        ↓
+14. ▶️ flutter run
+        ↓
+15. 👤 Criar usuário
+        ↓
+16. 🏦 Conectar MeuPluggy
+        ↓
+17. 🔄 Sincronizar contas
+        ↓
+18. 📱 Gerar APK
 ```
 
 ---
 
-# 23. Contribuições
+# 23. 🤝 Contribuições
 
 Sugestões, correções e melhorias são bem-vindas.
 
@@ -620,7 +624,7 @@ e teste as principais telas afetadas.
 
 ---
 
-## Aviso
+## ⚖️ Aviso
 
 Este é um projeto independente.
 
