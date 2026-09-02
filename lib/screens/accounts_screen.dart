@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/finance_service.dart';
+import '../services/planning_scope_service.dart';
 import '../widgets/finance_ui.dart';
 import '../widgets/privacy_finance_ui.dart';
 
@@ -20,48 +21,78 @@ class AccountsScreen extends StatefulWidget {
 
 class _AccountsScreenState extends State<AccountsScreen> {
   final _financeService = FinanceService();
+  final _planningScopeService = PlanningScopeService();
 
   bool _isLoading = true;
   bool _isRefreshing = false;
 
   String? _errorMessage;
+  int? _activeUserId;
 
   List<dynamic> _accounts = [];
 
   @override
   void initState() {
     super.initState();
-    _loadAccounts();
+    _initializeAccounts();
+  }
+
+  Future<void> _initializeAccounts() async {
+    _activeUserId = await _planningScopeService.getActiveUserId();
+
+    if (_activeUserId != null) {
+      final cachedSummary = await _financeService.getCachedSummary(
+        userId: _activeUserId!,
+      );
+
+      if (cachedSummary != null) {
+        _applySummary(cachedSummary);
+      }
+    }
+
+    // Stale-while-revalidate: a tela já usa o snapshot acima quando disponível,
+    // enquanto a rede busca os dados mais recentes em segundo plano.
+    await _loadAccounts();
+  }
+
+  void _applySummary(Map<String, dynamic> summary) {
+    final allAccounts = summary['payload']?['accounts'] ?? [];
+
+    final bankAccounts = List<dynamic>.from(allAccounts)
+        .where(
+          (account) =>
+              account['type']?.toString().toUpperCase() == 'BANK',
+        )
+        .toList();
+
+    if (!mounted) return;
+
+    setState(() {
+      _accounts = bankAccounts;
+      _isLoading = false;
+      _errorMessage = null;
+    });
   }
 
   Future<void> _loadAccounts() async {
     try {
-      final summary =
-          await _financeService.getSummary();
+      final summary = await _financeService.getSummary(
+        snapshotUserId: _activeUserId,
+      );
 
-      final allAccounts =
-          summary['payload']?['accounts'] ?? [];
-
-      final bankAccounts =
-          List<dynamic>.from(allAccounts)
-              .where(
-                (account) =>
-                    account['type']
-                        ?.toString()
-                        .toUpperCase() ==
-                    'BANK',
-              )
-              .toList();
-
-      if (!mounted) return;
-
-      setState(() {
-        _accounts = bankAccounts;
-        _isLoading = false;
-        _errorMessage = null;
-      });
+      _applySummary(summary);
     } catch (_) {
       if (!mounted) return;
+
+      // Se já temos dados do snapshot, mantemos a tela utilizável e não
+      // substituímos o conteúdo por uma mensagem de erro de rede.
+      if (_accounts.isNotEmpty) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = null;
+        });
+        return;
+      }
 
       setState(() {
         _isLoading = false;
