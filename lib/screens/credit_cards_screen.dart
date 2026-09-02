@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/card_notes_service.dart';
 import '../services/finance_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/finance_ui.dart';
@@ -8,56 +9,75 @@ import '../widgets/privacy_finance_ui.dart';
 import 'institution_credit_cards_screen.dart';
 
 
-class CreditCardsScreen
-    extends StatefulWidget {
-  const CreditCardsScreen({
-    super.key,
-  });
+class CreditCardsScreen extends StatefulWidget {
+  const CreditCardsScreen({super.key});
 
   @override
-  State<CreditCardsScreen> createState() =>
-      _CreditCardsScreenState();
+  State<CreditCardsScreen> createState() => _CreditCardsScreenState();
 }
 
 
-class _CreditCardsScreenState
-    extends State<CreditCardsScreen> {
+class _CreditCardsScreenState extends State<CreditCardsScreen> {
   final _financeService = FinanceService();
+  final _cardNotesService = CardNotesService();
+  final _notesController = TextEditingController();
 
   bool _isLoading = true;
   bool _isRefreshing = false;
+  bool _isSavingNotes = false;
 
   String? _errorMessage;
-
   List<dynamic> _cards = [];
 
   @override
   void initState() {
     super.initState();
     _loadCards();
+    _loadNotes();
+  }
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadNotes() async {
+    final notes = await _cardNotesService.load();
+    if (!mounted) return;
+    _notesController.text = notes;
+  }
+
+  Future<void> _saveNotes() async {
+    if (_isSavingNotes) return;
+
+    setState(() => _isSavingNotes = true);
+
+    try {
+      await _cardNotesService.save(_notesController.text);
+      if (!mounted) return;
+      FocusScope.of(context).unfocus();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Observações dos cartões salvas.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSavingNotes = false);
+      }
+    }
   }
 
   Future<void> _loadCards() async {
     try {
-      final summary =
-          await _financeService
-              .getSummary();
+      final summary = await _financeService.getSummary();
+      final allAccounts = summary['payload']?['accounts'] ?? [];
 
-      final allAccounts =
-          summary['payload']
-                  ?['accounts'] ??
-              [];
-
-      final cards =
-          List<dynamic>.from(
-        allAccounts,
-      ).where(
-        (account) =>
-            account['type']
-                ?.toString()
-                .toUpperCase() ==
-            'CREDIT',
-      ).toList();
+      final cards = List<dynamic>.from(allAccounts)
+          .where(
+            (account) =>
+                account['type']?.toString().toUpperCase() == 'CREDIT',
+          )
+          .toList();
 
       if (!mounted) return;
 
@@ -71,8 +91,7 @@ class _CreditCardsScreenState
 
       setState(() {
         _isLoading = false;
-        _errorMessage =
-            'Não foi possível carregar seus cartões.';
+        _errorMessage = 'Não foi possível carregar seus cartões.';
       });
     }
   }
@@ -80,9 +99,7 @@ class _CreditCardsScreenState
   Future<void> _refresh() async {
     if (_isRefreshing) return;
 
-    setState(() {
-      _isRefreshing = true;
-    });
+    setState(() => _isRefreshing = true);
 
     try {
       await _financeService.refresh();
@@ -91,64 +108,42 @@ class _CreditCardsScreenState
       await _loadCards();
     } finally {
       if (mounted) {
-        setState(() {
-          _isRefreshing = false;
-        });
+        setState(() => _isRefreshing = false);
       }
     }
   }
 
   double get _totalInvoice {
     double total = 0;
-
     for (final card in _cards) {
-      total +=
-          _getCardBalance(card);
+      total += _getCardBalance(card);
     }
-
     return total;
   }
 
   double get _totalCreditLimit {
     double total = 0;
-
     for (final card in _cards) {
-      final value =
-          _getCreditLimit(card);
-
-      if (value != null) {
-        total += value;
-      }
+      final value = _getCreditLimit(card);
+      if (value != null) total += value;
     }
-
     return total;
   }
 
   double get _totalAvailableLimit {
     double total = 0;
-
     for (final card in _cards) {
-      final value =
-          _getAvailableLimit(card);
-
-      if (value != null) {
-        total += value;
-      }
+      final value = _getAvailableLimit(card);
+      if (value != null) total += value;
     }
-
     return total;
   }
 
-  List<CardInstitution>
-      get _institutions {
-    final grouped =
-        <String, CardInstitution>{};
+  List<CardInstitution> get _institutions {
+    final grouped = <String, CardInstitution>{};
 
     for (final card in _cards) {
-      final institution =
-          _getInstitutionName(
-        card,
-      );
+      final institution = _getInstitutionName(card);
 
       grouped.putIfAbsent(
         institution,
@@ -161,113 +156,44 @@ class _CreditCardsScreenState
         ),
       );
 
-      grouped[institution]!
-          .invoiceTotal +=
-          _getCardBalance(card);
-
-      grouped[institution]!
-          .creditLimit +=
-          _getCreditLimit(card) ??
-              0;
-
-      grouped[institution]!
-          .availableLimit +=
-          _getAvailableLimit(card) ??
-              0;
-
-      grouped[institution]!
-          .cards
-          .add(card);
+      grouped[institution]!.invoiceTotal += _getCardBalance(card);
+      grouped[institution]!.creditLimit += _getCreditLimit(card) ?? 0;
+      grouped[institution]!.availableLimit += _getAvailableLimit(card) ?? 0;
+      grouped[institution]!.cards.add(card);
     }
 
-    final result =
-        grouped.values.toList();
-
-    result.sort(
-      (a, b) =>
-          b.invoiceTotal.compareTo(
-        a.invoiceTotal,
-      ),
-    );
-
+    final result = grouped.values.toList();
+    result.sort((a, b) => b.invoiceTotal.compareTo(a.invoiceTotal));
     return result;
   }
 
-  double _getCardBalance(
-    dynamic card,
-  ) {
-    final value =
-        card['balance'];
-
-    if (value is num) {
-      return value.toDouble();
-    }
-
-    return double.tryParse(
-          value?.toString() ?? '',
-        ) ??
-        0;
+  double _getCardBalance(dynamic card) {
+    final value = card['balance'];
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '') ?? 0;
   }
 
-  Map<String, dynamic>?
-      _getCreditData(
-    dynamic card,
-  ) {
-    final value =
-        card['creditData'];
-
-    if (value is Map) {
-      return Map<String, dynamic>.from(
-        value,
-      );
-    }
-
+  Map<String, dynamic>? _getCreditData(dynamic card) {
+    final value = card['creditData'];
+    if (value is Map) return Map<String, dynamic>.from(value);
     return null;
   }
 
-  double? _getCreditLimit(
-    dynamic card,
-  ) {
-    final value =
-        _getCreditData(card)
-            ?['creditLimit'];
-
-    if (value is num) {
-      return value.toDouble();
-    }
-
-    if (value != null) {
-      return double.tryParse(
-        value.toString(),
-      );
-    }
-
+  double? _getCreditLimit(dynamic card) {
+    final value = _getCreditData(card)?['creditLimit'];
+    if (value is num) return value.toDouble();
+    if (value != null) return double.tryParse(value.toString());
     return null;
   }
 
-  double? _getAvailableLimit(
-    dynamic card,
-  ) {
-    final value =
-        _getCreditData(card)
-            ?['availableCreditLimit'];
-
-    if (value is num) {
-      return value.toDouble();
-    }
-
-    if (value != null) {
-      return double.tryParse(
-        value.toString(),
-      );
-    }
-
+  double? _getAvailableLimit(dynamic card) {
+    final value = _getCreditData(card)?['availableCreditLimit'];
+    if (value is num) return value.toDouble();
+    if (value != null) return double.tryParse(value.toString());
     return null;
   }
 
-  String _getInstitutionName(
-    dynamic card,
-  ) {
+  String _getInstitutionName(dynamic card) {
     final candidates = [
       card['institution_name'],
       card['resolved_institution'],
@@ -276,8 +202,7 @@ class _CreditCardsScreenState
     ];
 
     for (final value in candidates) {
-      if (value != null &&
-          value.toString().trim().isNotEmpty) {
+      if (value != null && value.toString().trim().isNotEmpty) {
         return value.toString().trim();
       }
     }
@@ -285,23 +210,17 @@ class _CreditCardsScreenState
     return 'Outros';
   }
 
-  Future<void> _openInstitution(
-    CardInstitution institution,
-  ) async {
+  Future<void> _openInstitution(CardInstitution institution) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) =>
-            InstitutionCreditCardsScreen(
-          institutionName:
-              institution.name,
-          cards:
-              institution.cards,
+        builder: (_) => InstitutionCreditCardsScreen(
+          institutionName: institution.name,
+          cards: institution.cards,
         ),
       ),
     );
 
     if (!mounted) return;
-
     await _loadCards();
   }
 
@@ -312,9 +231,7 @@ class _CreditCardsScreenState
       isRefreshing: _isRefreshing,
       onRefreshButton: _refresh,
       onRefresh: _loadCards,
-      actions: const [
-        PrivacyEyeButton(),
-      ],
+      actions: const [PrivacyEyeButton()],
       child: _buildBody(),
     );
   }
@@ -326,240 +243,217 @@ class _CreditCardsScreenState
 
     if (_errorMessage != null) {
       return ListView(
-        padding:
-            const EdgeInsets.all(20),
-        children: [
-          const SizedBox(height: 80),
-          const FinanceEmptyState(
-            icon:
-                Icons.error_outline_rounded,
-            title:
-                'Não foi possível carregar',
-            subtitle:
-                'Verifique sua conexão e tente novamente.',
+        padding: const EdgeInsets.all(20),
+        children: const [
+          SizedBox(height: 80),
+          FinanceEmptyState(
+            icon: Icons.error_outline_rounded,
+            title: 'Não foi possível carregar',
+            subtitle: 'Verifique sua conexão e tente novamente.',
           ),
         ],
       );
     }
 
     return ListView(
-      physics:
-          const AlwaysScrollableScrollPhysics(),
-      padding:
-          const EdgeInsets.fromLTRB(
-        20,
-        8,
-        20,
-        36,
-      ),
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 36),
       children: [
         _buildCreditHero(),
-
+        const SizedBox(height: 14),
+        _buildNotesCard(),
         const SizedBox(height: 30),
-
         FinanceSectionHeader(
           title: 'Por instituição',
-          trailing:
-              '${_institutions.length}',
+          trailing: '${_institutions.length}',
         ),
-
         const SizedBox(height: 12),
-
         if (_institutions.isEmpty)
           const FinanceEmptyState(
-            icon:
-                Icons.credit_card_rounded,
-            title:
-                'Nenhum cartão encontrado',
-            subtitle:
-                'Conecte uma instituição para visualizar seus cartões.',
+            icon: Icons.credit_card_rounded,
+            title: 'Nenhum cartão encontrado',
+            subtitle: 'Conecte uma instituição para visualizar seus cartões.',
           )
         else
-          ..._institutions.map(
-            (institution) {
-              final utilization =
-                  institution.creditLimit <=
-                          0
-                      ? 0.0
-                      : institution
-                              .invoiceTotal /
-                          institution
-                              .creditLimit;
+          ..._institutions.map((institution) {
+            final utilization = institution.creditLimit <= 0
+                ? 0.0
+                : institution.invoiceTotal / institution.creditLimit;
 
-              return Padding(
-                padding:
-                    const EdgeInsets.only(
-                  bottom: 12,
-                ),
-                child: PrivacyFinanceListTile(
-                  institutionName:
-                      institution.name,
-                  title:
-                      institution.name,
-                  subtitle:
-                      '${institution.cards.length} '
-                      '${institution.cards.length == 1 ? 'cartão' : 'cartões'}',
-                  value:
-                      institution.invoiceTotal,
-                  trailingText:
-                      institution.creditLimit >
-                              0
-                          ? '${(utilization * 100).toStringAsFixed(0)}% utilizado'
-                          : null,
-                  progress:
-                      institution.creditLimit >
-                              0
-                          ? utilization
-                          : null,
-                  onTap: () =>
-                      _openInstitution(
-                    institution,
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: PrivacyFinanceListTile(
+                institutionName: institution.name,
+                title: institution.name,
+                subtitle:
+                    '${institution.cards.length} ${institution.cards.length == 1 ? 'cartão' : 'cartões'}',
+                value: institution.invoiceTotal,
+                trailingText: institution.creditLimit > 0
+                    ? '${(utilization * 100).toStringAsFixed(0)}% utilizado'
+                    : null,
+                progress: institution.creditLimit > 0 ? utilization : null,
+                onTap: () => _openInstitution(institution),
+              ),
+            );
+          }),
+      ],
+    );
+  }
+
+  Widget _buildNotesCard() {
+    return FinanceGlassCard(
+      radius: 22,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                FinanceIconBubble(icon: Icons.event_note_rounded),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Observações',
+                        style: TextStyle(
+                          color: AppTheme.ink,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Anote vencimentos ou lembretes dos cartões.',
+                        style: TextStyle(
+                          color: AppTheme.inkSoft,
+                          fontSize: 10.5,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              );
-            },
-          ),
-      ],
+              ],
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _notesController,
+              minLines: 2,
+              maxLines: 5,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: InputDecoration(
+                hintText: 'Ex.: Nubank vence dia 3 • C6 dia 5 • PicPay dia 5',
+                filled: true,
+                fillColor: AppTheme.primary.withValues(alpha: 0.04),
+                contentPadding: const EdgeInsets.all(14),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton.icon(
+                onPressed: _isSavingNotes ? null : _saveNotes,
+                icon: _isSavingNotes
+                    ? const SizedBox(
+                        width: 15,
+                        height: 15,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.check_rounded, size: 18),
+                label: Text(_isSavingNotes ? 'Salvando...' : 'Salvar'),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildCreditHero() {
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.all(23),
+      padding: const EdgeInsets.all(23),
       decoration: BoxDecoration(
-        gradient:
-            AppTheme.premiumGradient,
-        borderRadius:
-            BorderRadius.circular(29),
+        gradient: AppTheme.premiumGradient,
+        borderRadius: BorderRadius.circular(29),
         border: Border.all(
-          color:
-              Colors.white
-                  .withValues(
-            alpha: 0.15,
-          ),
+          color: Colors.white.withValues(alpha: 0.15),
         ),
-        boxShadow:
-            AppTheme.floatingShadow,
+        boxShadow: AppTheme.floatingShadow,
       ),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'Total em cartões',
             style: TextStyle(
-              color:
-                  Colors.white
-                      .withValues(
-                alpha: 0.68,
-              ),
+              color: Colors.white.withValues(alpha: 0.68),
               fontSize: 13,
-              fontWeight:
-                  FontWeight.w500,
+              fontWeight: FontWeight.w500,
             ),
           ),
-
           const SizedBox(height: 7),
-
           PrivacyMoney(
-            value:
-                _totalInvoice,
-            style:
-                const TextStyle(
-              color:
-                  Colors.white,
+            value: _totalInvoice,
+            style: const TextStyle(
+              color: Colors.white,
               fontSize: 32,
-              fontWeight:
-                  FontWeight.w800,
+              fontWeight: FontWeight.w800,
               letterSpacing: -0.9,
             ),
           ),
-
           const SizedBox(height: 21),
-
           Container(
-            padding:
-                const EdgeInsets.all(
-              15,
-            ),
-            decoration:
-                BoxDecoration(
-              color:
-                  Colors.white
-                      .withValues(
-                alpha: 0.08,
-              ),
-              borderRadius:
-                  BorderRadius.circular(
-                18,
-              ),
-              border:
-                  Border.all(
-                color:
-                    Colors.white
-                        .withValues(
-                  alpha: 0.09,
-                ),
+            padding: const EdgeInsets.all(15),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.09),
               ),
             ),
             child: Row(
               children: [
                 Expanded(
-                  child:
-                      _heroValue(
-                    label:
-                        'Limite total',
-                    value:
-                        _totalCreditLimit,
+                  child: _heroValue(
+                    label: 'Limite total',
+                    value: _totalCreditLimit,
                   ),
                 ),
-
                 Container(
                   height: 38,
                   width: 1,
-                  color:
-                      Colors.white
-                          .withValues(
-                    alpha: 0.14,
-                  ),
+                  color: Colors.white.withValues(alpha: 0.14),
                 ),
-
                 const SizedBox(width: 16),
-
                 Expanded(
-                  child:
-                      _heroValue(
-                    label:
-                        'Disponível',
-                    value:
-                        _totalAvailableLimit,
+                  child: _heroValue(
+                    label: 'Disponível',
+                    value: _totalAvailableLimit,
                   ),
                 ),
               ],
             ),
           ),
-
           const SizedBox(height: 15),
-
           Wrap(
             spacing: 18,
             runSpacing: 8,
             children: [
               FinanceHeroInfo(
-                icon:
-                    Icons.account_balance_rounded,
+                icon: Icons.account_balance_rounded,
                 text:
-                    '${_institutions.length} '
-                    '${_institutions.length == 1 ? 'instituição' : 'instituições'}',
+                    '${_institutions.length} ${_institutions.length == 1 ? 'instituição' : 'instituições'}',
               ),
               FinanceHeroInfo(
-                icon:
-                    Icons.credit_card_rounded,
-                text:
-                    '${_cards.length} '
-                    '${_cards.length == 1 ? 'cartão' : 'cartões'}',
+                icon: Icons.credit_card_rounded,
+                text: '${_cards.length} ${_cards.length == 1 ? 'cartão' : 'cartões'}',
               ),
             ],
           ),
@@ -568,38 +462,24 @@ class _CreditCardsScreenState
     );
   }
 
-  Widget _heroValue({
-    required String label,
-    required double value,
-  }) {
+  Widget _heroValue({required String label, required double value}) {
     return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
           style: TextStyle(
-            color:
-                Colors.white
-                    .withValues(
-              alpha: 0.58,
-            ),
+            color: Colors.white.withValues(alpha: 0.58),
             fontSize: 11,
           ),
         ),
-
         const SizedBox(height: 5),
-
         PrivacyMoney(
-          value:
-              value,
-          style:
-              const TextStyle(
-            color:
-                Colors.white,
+          value: value,
+          style: const TextStyle(
+            color: Colors.white,
             fontSize: 14,
-            fontWeight:
-                FontWeight.w700,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ],
@@ -610,11 +490,9 @@ class _CreditCardsScreenState
 
 class CardInstitution {
   final String name;
-
   double invoiceTotal;
   double creditLimit;
   double availableLimit;
-
   final List<dynamic> cards;
 
   CardInstitution({
