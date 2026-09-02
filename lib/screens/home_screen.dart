@@ -122,6 +122,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (!mounted) return;
     setState(() => _user = user);
+
+    final cachedSummary = await _financeService.getCachedSummary(
+      userId: user.id,
+    );
+    if (cachedSummary != null) {
+      _applySummary(cachedSummary);
+    }
+
+    // Stale-while-revalidate: se havia snapshot, a Home já foi exibida acima.
+    // A rede continua atualizando os dados e sobrescreve o snapshot ao concluir.
     await _loadSummary();
   }
 
@@ -136,29 +146,37 @@ class _HomeScreenState extends State<HomeScreen> {
     return result;
   }
 
+  void _applySummary(Map<String, dynamic> summary) {
+    final payload = summary['payload'] ?? {};
+    final manualByMonth = _parseMonthlyMap(
+      payload['manual_commitments_by_month'] ?? payload['pix_sent_by_month'],
+    );
+    final cardByMonth = _parseMonthlyMap(
+      payload['credit_card_commitments_by_month'],
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _accounts = payload['accounts'] ?? [];
+      _investments = payload['investments'] ?? [];
+      _manualCommitmentsByMonth = manualByMonth;
+      _cardCommitmentsByMonth = cardByMonth;
+      _updatedAt = summary['updated_at'];
+      _isLoading = false;
+    });
+  }
+
   Future<void> _loadSummary() async {
     try {
-      final summary = await _financeService.getSummary();
-      final payload = summary['payload'] ?? {};
-      final manualByMonth = _parseMonthlyMap(
-        payload['manual_commitments_by_month'] ?? payload['pix_sent_by_month'],
+      final summary = await _financeService.getSummary(
+        snapshotUserId: _user?.id,
       );
-      final cardByMonth = _parseMonthlyMap(
-        payload['credit_card_commitments_by_month'],
-      );
-
-      if (!mounted) return;
-      setState(() {
-        _accounts = payload['accounts'] ?? [];
-        _investments = payload['investments'] ?? [];
-        _manualCommitmentsByMonth = manualByMonth;
-        _cardCommitmentsByMonth = cardByMonth;
-        _updatedAt = summary['updated_at'];
-        _isLoading = false;
-      });
+      _applySummary(summary);
     } catch (_) {
       if (!mounted) return;
-      setState(() => _isLoading = false);
+      if (_isLoading) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
