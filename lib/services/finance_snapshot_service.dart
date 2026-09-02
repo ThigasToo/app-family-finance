@@ -6,13 +6,17 @@ class FinanceSnapshotService {
   FinanceSnapshotService({FlutterSecureStorage? storage})
       : _storage = storage ?? const FlutterSecureStorage();
 
-  static const _snapshotKey = 'finance_snapshot_v1';
+  static const _snapshotKey = 'finance_snapshot_v2';
 
   final FlutterSecureStorage _storage;
 
-  Future<void> saveSnapshot(Map<String, dynamic> summary) async {
+  Future<void> saveSnapshot(
+    Map<String, dynamic> summary, {
+    required int userId,
+  }) async {
     final snapshot = <String, dynamic>{
-      'version': 1,
+      'version': 2,
+      'user_id': userId,
       'saved_at': DateTime.now().toUtc().toIso8601String(),
       'summary': summary,
     };
@@ -23,7 +27,7 @@ class FinanceSnapshotService {
     );
   }
 
-  Future<Map<String, dynamic>?> getSnapshot() async {
+  Future<Map<String, dynamic>?> getSnapshot({required int userId}) async {
     final raw = await _storage.read(key: _snapshotKey);
     if (raw == null || raw.isEmpty) return null;
 
@@ -32,7 +36,8 @@ class FinanceSnapshotService {
       if (decoded is! Map) return null;
 
       final snapshot = Map<String, dynamic>.from(decoded);
-      if (snapshot['version'] != 1) return null;
+      if (snapshot['version'] != 2) return null;
+      if (snapshot['user_id'] != userId) return null;
 
       final summary = snapshot['summary'];
       if (summary is! Map) return null;
@@ -43,8 +48,8 @@ class FinanceSnapshotService {
     }
   }
 
-  Future<Map<String, dynamic>?> getSummary() async {
-    final snapshot = await getSnapshot();
+  Future<Map<String, dynamic>?> getSummary({required int userId}) async {
+    final snapshot = await getSnapshot(userId: userId);
     if (snapshot == null) return null;
 
     final summary = snapshot['summary'];
@@ -53,8 +58,8 @@ class FinanceSnapshotService {
     return Map<String, dynamic>.from(summary);
   }
 
-  Future<DateTime?> getSavedAt() async {
-    final snapshot = await getSnapshot();
+  Future<DateTime?> getSavedAt({required int userId}) async {
+    final snapshot = await getSnapshot(userId: userId);
     final value = snapshot?['saved_at']?.toString();
     if (value == null || value.isEmpty) return null;
 
