@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/card_notes_service.dart';
 import '../services/finance_service.dart';
+import '../services/planning_scope_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/finance_ui.dart';
 import '../widgets/privacy_finance_ui.dart';
@@ -19,6 +20,7 @@ class CreditCardsScreen extends StatefulWidget {
 
 class _CreditCardsScreenState extends State<CreditCardsScreen> {
   final _financeService = FinanceService();
+  final _planningScopeService = PlanningScopeService();
   final _cardNotesService = CardNotesService();
   final _notesController = TextEditingController();
 
@@ -27,12 +29,13 @@ class _CreditCardsScreenState extends State<CreditCardsScreen> {
   bool _isSavingNotes = false;
 
   String? _errorMessage;
+  int? _activeUserId;
   List<dynamic> _cards = [];
 
   @override
   void initState() {
     super.initState();
-    _loadCards();
+    _initializeCards();
     _loadNotes();
   }
 
@@ -40,6 +43,24 @@ class _CreditCardsScreenState extends State<CreditCardsScreen> {
   void dispose() {
     _notesController.dispose();
     super.dispose();
+  }
+
+  Future<void> _initializeCards() async {
+    _activeUserId = await _planningScopeService.getActiveUserId();
+
+    if (_activeUserId != null) {
+      final cachedSummary = await _financeService.getCachedSummary(
+        userId: _activeUserId!,
+      );
+
+      if (cachedSummary != null) {
+        _applySummary(cachedSummary);
+      }
+    }
+
+    // Stale-while-revalidate: se havia snapshot, os cartões já aparecem acima.
+    // A rede continua buscando os dados atuais e atualiza a tela ao concluir.
+    await _loadCards();
   }
 
   Future<void> _loadNotes() async {
@@ -67,27 +88,44 @@ class _CreditCardsScreenState extends State<CreditCardsScreen> {
     }
   }
 
+  void _applySummary(Map<String, dynamic> summary) {
+    final allAccounts = summary['payload']?['accounts'] ?? [];
+
+    final cards = List<dynamic>.from(allAccounts)
+        .where(
+          (account) =>
+              account['type']?.toString().toUpperCase() == 'CREDIT',
+        )
+        .toList();
+
+    if (!mounted) return;
+
+    setState(() {
+      _cards = cards;
+      _isLoading = false;
+      _errorMessage = null;
+    });
+  }
+
   Future<void> _loadCards() async {
     try {
-      final summary = await _financeService.getSummary();
-      final allAccounts = summary['payload']?['accounts'] ?? [];
+      final summary = await _financeService.getSummary(
+        snapshotUserId: _activeUserId,
+      );
 
-      final cards = List<dynamic>.from(allAccounts)
-          .where(
-            (account) =>
-                account['type']?.toString().toUpperCase() == 'CREDIT',
-          )
-          .toList();
-
-      if (!mounted) return;
-
-      setState(() {
-        _cards = cards;
-        _isLoading = false;
-        _errorMessage = null;
-      });
+      _applySummary(summary);
     } catch (_) {
       if (!mounted) return;
+
+      // Se o snapshot já carregou cartões, uma falha de rede não deve apagar
+      // a tela nem trocar dados úteis por um estado de erro.
+      if (_cards.isNotEmpty) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = null;
+        });
+        return;
+      }
 
       setState(() {
         _isLoading = false;
