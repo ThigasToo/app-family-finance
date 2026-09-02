@@ -51,19 +51,19 @@ class FinanceService {
     }
   }
 
-  Future<Map<String, dynamic>?> getCachedSummary() {
-    return _snapshotService.getSummary();
+  Future<Map<String, dynamic>?> getCachedSummary({required int userId}) {
+    return _snapshotService.getSummary(userId: userId);
   }
 
-  Future<DateTime?> getCachedSummarySavedAt() {
-    return _snapshotService.getSavedAt();
+  Future<DateTime?> getCachedSummarySavedAt({required int userId}) {
+    return _snapshotService.getSavedAt(userId: userId);
   }
 
   Future<void> clearCachedSummary() {
     return _snapshotService.clearSnapshot();
   }
 
-  Future<Map<String, dynamic>> getSummary() async {
+  Future<Map<String, dynamic>> getSummary({int? snapshotUserId}) async {
     final headers = await _authenticatedHeaders();
 
     final response = await http.get(
@@ -112,7 +112,9 @@ class FinanceService {
       }
     }
 
-    await _snapshotService.saveSnapshot(decoded);
+    if (snapshotUserId != null) {
+      await _snapshotService.saveSnapshot(decoded, userId: snapshotUserId);
+    }
     return decoded;
   }
 
