@@ -4,10 +4,12 @@ import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
 import 'auth_service.dart';
+import 'finance_snapshot_service.dart';
 
 
 class FinanceService {
   final _authService = AuthService();
+  final _snapshotService = FinanceSnapshotService();
 
   static Map<String, dynamic>? _lastMonthlyTotals;
 
@@ -47,6 +49,18 @@ class FinanceService {
     if (totals['pix_sent_by_month'] != null) {
       payload['pix_sent_by_month'] = totals['pix_sent_by_month'];
     }
+  }
+
+  Future<Map<String, dynamic>?> getCachedSummary() {
+    return _snapshotService.getSummary();
+  }
+
+  Future<DateTime?> getCachedSummarySavedAt() {
+    return _snapshotService.getSavedAt();
+  }
+
+  Future<void> clearCachedSummary() {
+    return _snapshotService.clearSnapshot();
   }
 
   Future<Map<String, dynamic>> getSummary() async {
@@ -98,6 +112,7 @@ class FinanceService {
       }
     }
 
+    await _snapshotService.saveSnapshot(decoded);
     return decoded;
   }
 
