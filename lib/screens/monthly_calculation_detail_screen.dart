@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../services/finance_service.dart';
+import '../services/monthly_detail_loader.dart';
 import '../services/privacy_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
@@ -33,6 +36,7 @@ class MonthlyCalculationDetailScreen extends StatefulWidget {
 class _MonthlyCalculationDetailScreenState
     extends State<MonthlyCalculationDetailScreen> {
   final _financeService = FinanceService();
+  final _monthlyLoader = MonthlyDetailLoader();
   final _commitmentController = TextEditingController();
 
   bool _isLoading = true;
@@ -49,7 +53,7 @@ class _MonthlyCalculationDetailScreenState
   void initState() {
     super.initState();
     _cardRange = _fullMonthRange();
-    _load();
+    _loadInitial();
   }
 
   @override
@@ -73,8 +77,88 @@ class _MonthlyCalculationDetailScreenState
     return DateTime.tryParse(value.toString()) ?? fallback;
   }
 
-  Future<void> _load() async {
-    if (mounted) {
+  void _applyManualCommitment(double manual) {
+    _manualCommitment = manual;
+    _commitmentController.text =
+        manual == 0 ? '' : manual.toStringAsFixed(2).replaceAll('.', ',');
+  }
+
+  Future<void> _loadInitial() async {
+    try {
+      final userId = await _monthlyLoader.getActiveUserId();
+      if (userId == null) {
+        await _load();
+        return;
+      }
+
+      if (_isCards) {
+        final cachedPeriod = await _monthlyLoader.getCachedCardPeriod(
+          userId: userId,
+          month: widget.month,
+        );
+        final full = _fullMonthRange();
+        final range = DateTimeRange(
+          start: _parseApiDate(cachedPeriod?['date_from'], full.start),
+          end: _parseApiDate(cachedPeriod?['date_to'], full.end),
+        );
+        final cachedData = await _monthlyLoader.getCachedBreakdown(
+          userId: userId,
+          month: widget.month,
+          dateFrom: range.start,
+          dateTo: range.end,
+        );
+
+        if (cachedData != null && mounted) {
+          setState(() {
+            _cardRange = range;
+            _data = cachedData;
+            _error = null;
+            _isLoading = false;
+          });
+          unawaited(_refreshFromNetwork());
+          return;
+        }
+
+        await _load();
+        return;
+      }
+
+      final cached = await Future.wait([
+        _monthlyLoader.getCachedBreakdown(
+          userId: userId,
+          month: widget.month,
+        ),
+        _monthlyLoader.getCachedManualCommitment(
+          userId: userId,
+          month: widget.month,
+        ),
+      ]);
+      final cachedData = cached[0] as Map<String, dynamic>?;
+      final cachedManual = cached[1] as double?;
+
+      if (cachedData != null && mounted) {
+        setState(() {
+          _data = cachedData;
+          _applyManualCommitment(cachedManual ?? 0);
+          _error = null;
+          _isLoading = false;
+        });
+        unawaited(_refreshFromNetwork());
+        return;
+      }
+
+      await _load();
+    } catch (_) {
+      await _load();
+    }
+  }
+
+  Future<void> _load() {
+    return _refreshFromNetwork(showLoading: true);
+  }
+
+  Future<void> _refreshFromNetwork({bool showLoading = false}) async {
+    if (mounted && showLoading && _data == null) {
       setState(() {
         _isLoading = true;
         _error = null;
@@ -82,8 +166,11 @@ class _MonthlyCalculationDetailScreenState
     }
 
     try {
+      final userId = await _monthlyLoader.getActiveUserId();
+
       if (_isCards) {
-        final period = await _financeService.getCardPeriod(
+        final period = await _monthlyLoader.fetchCardPeriodFresh(
+          userId: userId,
           month: widget.month,
         );
         final full = _fullMonthRange();
@@ -91,8 +178,8 @@ class _MonthlyCalculationDetailScreenState
           start: _parseApiDate(period['date_from'], full.start),
           end: _parseApiDate(period['date_to'], full.end),
         );
-
-        final data = await _financeService.getMonthlyBreakdown(
+        final data = await _monthlyLoader.fetchBreakdownFresh(
+          userId: userId,
           month: widget.month,
           dateFrom: range.start,
           dateTo: range.end,
@@ -102,29 +189,41 @@ class _MonthlyCalculationDetailScreenState
         setState(() {
           _cardRange = range;
           _data = data;
+          _error = null;
           _isLoading = false;
         });
         return;
       }
 
       final results = await Future.wait([
-        _financeService.getMonthlyBreakdown(month: widget.month),
-        _financeService.getManualCommitment(month: widget.month),
+        _monthlyLoader.fetchBreakdownFresh(
+          userId: userId,
+          month: widget.month,
+        ),
+        _monthlyLoader.fetchManualCommitmentFresh(
+          userId: userId,
+          month: widget.month,
+        ),
       ]);
 
       if (!mounted) return;
       final data = results[0] as Map<String, dynamic>;
       final manual = results[1] as double;
-
       setState(() {
         _data = data;
-        _manualCommitment = manual;
-        _commitmentController.text =
-            manual == 0 ? '' : manual.toStringAsFixed(2).replaceAll('.', ',');
+        _applyManualCommitment(manual);
+        _error = null;
         _isLoading = false;
       });
     } catch (e) {
       if (!mounted) return;
+      if (_data != null) {
+        setState(() {
+          _error = null;
+          _isLoading = false;
+        });
+        return;
+      }
       setState(() {
         _error = e.toString().replaceFirst('Exception: ', '');
         _isLoading = false;
