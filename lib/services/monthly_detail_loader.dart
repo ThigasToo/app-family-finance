@@ -143,4 +143,86 @@ class MonthlyDetailLoader {
     }
     return amount;
   }
+
+  Future<Map<String, dynamic>> fetchManualCardEntries({
+    required String month,
+  }) async {
+    final headers = await _authenticatedHeaders();
+    final uri = Uri.parse('${ApiConfig.baseUrl}/finance/manual-card-entries')
+        .replace(queryParameters: {'month': month});
+    final response = await http.get(uri, headers: headers);
+    if (response.statusCode != 200) {
+      throw Exception('Erro ao buscar ajustes manuais dos cartões');
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) {
+      throw Exception('Resposta inválida dos ajustes manuais');
+    }
+    return decoded;
+  }
+
+  Future<Map<String, dynamic>> createManualCardEntry({
+    required String month,
+    required String description,
+    required double amount,
+    String? institution,
+  }) async {
+    final headers = await _authenticatedHeaders();
+    final uri = Uri.parse('${ApiConfig.baseUrl}/finance/manual-card-entries')
+        .replace(queryParameters: {'month': month});
+    final response = await http.post(
+      uri,
+      headers: headers,
+      body: jsonEncode({
+        'description': description,
+        'amount': amount,
+        'institution': institution,
+      }),
+    );
+    if (response.statusCode != 201) {
+      throw Exception('Erro ao adicionar ajuste manual');
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) {
+      throw Exception('Resposta inválida ao adicionar ajuste');
+    }
+    return decoded;
+  }
+
+  Future<Map<String, dynamic>> updateManualCardEntry({
+    required int entryId,
+    required String description,
+    required double amount,
+    String? institution,
+  }) async {
+    final headers = await _authenticatedHeaders();
+    final response = await http.put(
+      Uri.parse('${ApiConfig.baseUrl}/finance/manual-card-entries/$entryId'),
+      headers: headers,
+      body: jsonEncode({
+        'description': description,
+        'amount': amount,
+        'institution': institution,
+      }),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Erro ao atualizar ajuste manual');
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) {
+      throw Exception('Resposta inválida ao atualizar ajuste');
+    }
+    return decoded;
+  }
+
+  Future<void> deleteManualCardEntry({required int entryId}) async {
+    final headers = await _authenticatedHeaders();
+    final response = await http.delete(
+      Uri.parse('${ApiConfig.baseUrl}/finance/manual-card-entries/$entryId'),
+      headers: headers,
+    );
+    if (response.statusCode != 204) {
+      throw Exception('Erro ao excluir ajuste manual');
+    }
+  }
 }
