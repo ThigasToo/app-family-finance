@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/monthly_detail_loader.dart';
+import '../services/privacy_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
 
@@ -47,6 +48,12 @@ class _ManualCardAdjustmentsSectionState
   double _number(dynamic value) {
     if (value is num) return value.toDouble();
     return double.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  String _money(double value) {
+    return PrivacyService.instance.valuesVisible.value
+        ? formatCurrency(value)
+        : '••••••';
   }
 
   double? _parseCurrency(String input) {
@@ -236,132 +243,137 @@ class _ManualCardAdjustmentsSectionState
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: AppTheme.glassDecoration(radius: 22),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return ValueListenableBuilder<bool>(
+      valueListenable: PrivacyService.instance.valuesVisible,
+      builder: (context, _, __) {
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: AppTheme.glassDecoration(radius: 22),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'AJUSTES MANUAIS',
-                      style: TextStyle(
-                        color: AppTheme.ink,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.8,
-                      ),
-                    ),
-                    SizedBox(height: 3),
-                    Text(
-                      'Use quando o banco não enviar toda a dívida do mês.',
-                      style: TextStyle(
-                        color: AppTheme.inkSoft,
-                        fontSize: 11.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              FilledButton.icon(
-                onPressed: () => _openForm(),
-                icon: const Icon(Icons.add_rounded, size: 18),
-                label: const Text('Adicionar'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          if (_loading)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.all(10),
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            )
-          else if (_items.isEmpty)
-            const Text(
-              'Nenhum ajuste manual neste mês.',
-              style: TextStyle(color: AppTheme.inkSoft, fontSize: 12),
-            )
-          else
-            ..._items.map(
-              (item) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            item['description']?.toString() ?? 'Ajuste manual',
-                            style: const TextStyle(
-                              color: AppTheme.ink,
-                              fontWeight: FontWeight.w700,
-                            ),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'AJUSTES MANUAIS',
+                          style: TextStyle(
+                            color: AppTheme.ink,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.8,
                           ),
-                          if ((item['institution']?.toString() ?? '').isNotEmpty)
-                            Text(
-                              item['institution'].toString(),
-                              style: const TextStyle(
-                                color: AppTheme.inkSoft,
-                                fontSize: 11,
+                        ),
+                        SizedBox(height: 3),
+                        Text(
+                          'Use quando o banco não enviar toda a dívida do mês.',
+                          style: TextStyle(
+                            color: AppTheme.inkSoft,
+                            fontSize: 11.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  FilledButton.icon(
+                    onPressed: () => _openForm(),
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: const Text('Adicionar'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              if (_loading)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(10),
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              else if (_items.isEmpty)
+                const Text(
+                  'Nenhum ajuste manual neste mês.',
+                  style: TextStyle(color: AppTheme.inkSoft, fontSize: 12),
+                )
+              else
+                ..._items.map(
+                  (item) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item['description']?.toString() ?? 'Ajuste manual',
+                                style: const TextStyle(
+                                  color: AppTheme.ink,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
-                            ),
-                        ],
+                              if ((item['institution']?.toString() ?? '').isNotEmpty)
+                                Text(
+                                  item['institution'].toString(),
+                                  style: const TextStyle(
+                                    color: AppTheme.inkSoft,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          _money(_number(item['amount'])),
+                          style: const TextStyle(
+                            color: AppTheme.ink,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        PopupMenuButton<String>(
+                          onSelected: (value) {
+                            if (value == 'edit') _openForm(item);
+                            if (value == 'delete') _delete(item);
+                          },
+                          itemBuilder: (_) => const [
+                            PopupMenuItem(value: 'edit', child: Text('Editar')),
+                            PopupMenuItem(value: 'delete', child: Text('Excluir')),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              if (!_loading) ...[
+                const Divider(height: 22),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Total manual',
+                        style: TextStyle(
+                          color: AppTheme.inkSoft,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                     Text(
-                      formatCurrency(_number(item['amount'])),
+                      _money(_total),
                       style: const TextStyle(
                         color: AppTheme.ink,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    PopupMenuButton<String>(
-                      onSelected: (value) {
-                        if (value == 'edit') _openForm(item);
-                        if (value == 'delete') _delete(item);
-                      },
-                      itemBuilder: (_) => const [
-                        PopupMenuItem(value: 'edit', child: Text('Editar')),
-                        PopupMenuItem(value: 'delete', child: Text('Excluir')),
-                      ],
-                    ),
                   ],
                 ),
-              ),
-            ),
-          if (!_loading) ...[
-            const Divider(height: 22),
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Total manual',
-                    style: TextStyle(
-                      color: AppTheme.inkSoft,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                Text(
-                  formatCurrency(_total),
-                  style: const TextStyle(
-                    color: AppTheme.ink,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
               ],
-            ),
-          ],
-        ],
-      ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
