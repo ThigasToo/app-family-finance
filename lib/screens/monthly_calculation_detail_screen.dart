@@ -7,6 +7,7 @@ import '../services/monthly_detail_loader.dart';
 import '../services/privacy_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
+import '../widgets/manual_card_adjustments_section.dart';
 
 
 enum MonthlyCalculationType {
@@ -44,6 +45,8 @@ class _MonthlyCalculationDetailScreenState
   String? _error;
   Map<String, dynamic>? _data;
   double _manualCommitment = 0;
+  double _manualCardTotal = 0;
+  int _manualCardsRefreshToken = 0;
   late DateTimeRange _cardRange;
 
   bool get _isCards =>
@@ -189,6 +192,7 @@ class _MonthlyCalculationDetailScreenState
         setState(() {
           _cardRange = range;
           _data = data;
+          _manualCardsRefreshToken++;
           _error = null;
           _isLoading = false;
         });
@@ -370,6 +374,7 @@ class _MonthlyCalculationDetailScreenState
   }
 
   double get _cardTotal => _number(_cardSection['total']);
+  double get _effectiveCardTotal => _cardTotal + _manualCardTotal;
   double get _pixReceived => _number(_rawPix['received_total']);
   double get _pixSent => _number(_rawPix['sent_total']);
   double get _applications =>
@@ -532,7 +537,7 @@ class _MonthlyCalculationDetailScreenState
           const SizedBox(height: 22),
           Text(
             _isCards
-                ? 'LANÇAMENTOS NO PERÍODO'
+                ? 'LANÇAMENTOS IDENTIFICADOS PELOS BANCOS'
                 : 'MOVIMENTAÇÕES PARA CONSULTA',
             style: TextStyle(
               color: AppTheme.inkSoft.withValues(alpha: 0.9),
@@ -556,6 +561,17 @@ class _MonthlyCalculationDetailScreenState
             _buildEmptyState()
           else
             ..._items.map(_buildItemCard),
+          if (_isCards) ...[
+            const SizedBox(height: 12),
+            ManualCardAdjustmentsSection(
+              month: widget.month,
+              refreshToken: _manualCardsRefreshToken,
+              onTotalChanged: (total) {
+                if (!mounted || total == _manualCardTotal) return;
+                setState(() => _manualCardTotal = total);
+              },
+            ),
+          ],
         ],
       ),
     );
@@ -650,7 +666,7 @@ class _MonthlyCalculationDetailScreenState
                         const SizedBox(height: 2),
                         Text(
                           _isCards
-                              ? 'Compras no período selecionado'
+                              ? 'Total considerado no mês'
                               : 'Consulta das movimentações',
                           style: const TextStyle(
                             color: Colors.white,
@@ -677,7 +693,7 @@ class _MonthlyCalculationDetailScreenState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          _money(_cardTotal),
+          _money(_effectiveCardTotal),
           style: const TextStyle(
             color: Colors.white,
             fontSize: 31,
@@ -687,10 +703,19 @@ class _MonthlyCalculationDetailScreenState
         ),
         const SizedBox(height: 7),
         Text(
-          '$_count ${_count == 1 ? 'lançamento' : 'lançamentos'} entre ${_shortDate(_cardRange.start)} e ${_shortDate(_cardRange.end)}',
+          'Banco ${_money(_cardTotal)} + manual ${_money(_manualCardTotal)}',
           style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.72),
+            color: Colors.white.withValues(alpha: 0.78),
             fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '$_count ${_count == 1 ? 'lançamento automático' : 'lançamentos automáticos'} entre ${_shortDate(_cardRange.start)} e ${_shortDate(_cardRange.end)}',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.66),
+            fontSize: 11.5,
           ),
         ),
       ],
@@ -835,7 +860,7 @@ class _MonthlyCalculationDetailScreenState
           const SizedBox(height: 10),
           Text(
             _isCards
-                ? 'Nenhum lançamento encontrado neste período.'
+                ? 'Nenhum lançamento automático encontrado neste período.'
                 : 'Nenhuma movimentação encontrada neste mês.',
             textAlign: TextAlign.center,
             style: const TextStyle(
