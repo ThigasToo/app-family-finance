@@ -1,0 +1,7 @@
+# Copie este arquivo para android/key.properties e preencha com a sua keystore permanente.
+# NUNCA versione android/key.properties nem o arquivo .jks.
+
+storePassword=COLOQUE_A_SENHA_DA_KEYSTORE
+keyPassword=COLOQUE_A_SENHA_DA_CHAVE
+keyAlias=family-finance
+storeFile=family-finance-release.jks
